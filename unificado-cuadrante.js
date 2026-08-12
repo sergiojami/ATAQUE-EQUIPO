@@ -1,34 +1,97 @@
+/* Cuadrante unificado: M, T, M/T + C, V, CS, AP, B con contadores mensuales. */
 (function(){
-  function daysInMonth(y,m){return new Date(y,m+1,0).getDate();}
-  function dk(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
-  function ml(d){return new Intl.DateTimeFormat('es-ES',{month:'long',year:'numeric'}).format(d);}
+  const TYPES=['M','T','M/T','C','V','CS','AP','B'];
+  const SPECIAL=['C','V','CS','AP','B'];
+  const LABELS={M:'Mañana',T:'Tarde','M/T':'Mañana y tarde',C:'Compensación',V:'Vacaciones',CS:'Comisión de servicio',AP:'Asuntos propios',B:'Baja'};
+  const daysInMonth=(y,m)=>new Date(y,m+1,0).getDate();
+  const dk=(y,m,d)=>`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const ml=d=>new Intl.DateTimeFormat('es-ES',{month:'long',year:'numeric'}).format(d);
+  const escU=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   const oldRender=window.render;
-  window.render=function(page='inicio'){
-    if(page==='especiales') page='cuadrantes';
-    return oldRender(page);
-  };
-  const oldNav=window.navItem;
-  window.navItem=function(page,icon,label,active){
-    if(page==='especiales') return '';
-    return oldNav(page,icon,label,active);
-  };
-  window.renderUnifiedCuadrante=async function(){
+
+  async function unifiedPage(){
     const content=document.getElementById('content'); if(!content)return;
     const date=window.calendarDate||new Date(), y=date.getFullYear(), m=date.getMonth(), n=daysInMonth(y,m);
     const start=dk(y,m,1), end=dk(y,m,n);
-    const [sr,er]=await Promise.all([
-      db.from('turnos_cuadrante').select('id,fecha,empleado_id,turno,nota').gte('fecha',start).lte('fecha',end),
-      db.from('especiales').select('id,empleado_id,c,v,cs,ap,b')
-    ]);
-    const shifts=sr.data||[], sm=new Set(shifts.map(x=>`${x.fecha}|${x.empleado_id}|${x.turno}`)), em=new Map((er.data||[]).map(x=>[x.empleado_id,x]));
+    let shifts=[], specials=[];
+    try{
+      const [sr,er]=await Promise.all([
+        db.from('turnos_cuadrante').select('id,fecha,empleado_id,turno').gte('fecha',start).lte('fecha',end),
+        db.from('especiales_calendario').select('id,fecha,empleado_id,tipo').gte('fecha',start).lte('fecha',end)
+      ]);
+      if(!sr.error) shifts=sr.data||[];
+      if(!er.error) specials=er.data||[];
+    }catch(e){ console.warn(e); }
+
+    const state=new Map();
+    shifts.forEach(r=>{
+      const k=`${r.fecha}|${r.empleado_id}`;
+      const cur=state.get(k)||'';
+      const t=String(r.turno||'').toUpperCase();
+      if(t==='M' || t==='MAÑANA') state.set(k,cur==='T'?'M/T':'M');
+      if(t==='T' || t==='TARDE') state.set(k,cur==='M'?'M/T':'T');
+      if(t==='M/T') state.set(k,'M/T');
+    });
+    specials.forEach(r=>state.set(`${r.fecha}|${r.empleado_id}`,String(r.tipo||'')));
+
+    const counters=new Map();
+    employees.forEach(e=>counters.set(e.id,{M:0,T:0,'M/T':0,C:0,V:0,CS:0,AP:0,B:0}));
+    state.forEach((value,key)=>{
+      const eid=key.split('|')[1]; const c=counters.get(eid); if(!c)return;
+      if(c[value]!==undefined)c[value]++;
+    });
+    const totals={M:0,T:0,'M/T':0,C:0,V:0,CS:0,AP:0,B:0};
+    counters.forEach(c=>TYPES.forEach(t=>totals[t]+=c[t]));
     const days=Array.from({length:n},(_,i)=>i+1);
-    const shiftTable=`<div class="unified-section"><div class="unified-section-head"><div><span class="eyebrow">TURNOS</span><h3>Cuadrante mensual</h3><p class="muted">M = mañana · T = tarde. ${admin?'Solo el administrador puede modificar.':'Modo consulta.'}</p></div></div><div class="unified-scroll"><table class="unified-shift-table"><thead><tr><th rowspan="2">Empleado</th>${days.map(d=>`<th colspan="2">${String(d).padStart(2,'0')}</th>`).join('')}</tr><tr>${days.map(()=>'<th>M</th><th>T</th>').join('')}</tr></thead><tbody>${employees.map(e=>`<tr><th class="unified-name">${esc(e.nombre)}</th>${days.map(d=>['M','T'].map(t=>{const date=dk(y,m,d),ck=sm.has(`${date}|${e.id}|${t}`);return `<td class="u-${t.toLowerCase()} ${ck?'on':''}"><button ${admin?'':'disabled'} onclick="unifiedShift('${e.id}','${date}','${t}',${!ck})">${ck?t:''}</button></td>`}).join('')).join('')}</tr>`).join('')}</tbody></table></div></div>`;
-    const specialTable=`<div class="unified-section"><div class="unified-section-head"><div><span class="eyebrow">ESPECIALES</span><h3>Especiales del equipo</h3><p class="muted">C = Compensación · V = Vacaciones · CS = Comisión de servicio · AP = Asuntos propios · B = Baja.</p></div></div><div class="unified-scroll"><table class="unified-special-table"><thead><tr><th>Empleado</th>${['C','V','CS','AP','B'].map(x=>`<th>${x}</th>`).join('')}<th>Total</th></tr></thead><tbody>${employees.map(e=>{const x=em.get(e.id)||{c:0,v:0,cs:0,ap:0,b:0};const vals=['c','v','cs','ap','b'].map(k=>Number(x[k]||0));return `<tr><th>${esc(e.nombre)}</th>${['c','v','cs','ap','b'].map((k,i)=>`<td><button class="special-counter" ${admin?'':'disabled'} onclick="unifiedSpecial('${e.id}','${k}',1)">−</button><b>${vals[i]}</b><button class="special-counter" ${admin?'':'disabled'} onclick="unifiedSpecial('${e.id}','${k}',1)">+</button></td>`).join('')}<td><strong>${vals.reduce((a,b)=>a+b,0)}</strong></td></tr>`}).join('')}</tbody></table></div></div>`;
-    content.innerHTML=`<div class="calendar-toolbar"><div><span class="eyebrow">PLANIFICACIÓN DEL EQUIPO</span><h3>Cuadrante de Turnos y Especiales</h3><p class="muted">Todo el control mensual del personal en una única pantalla.</p></div><div class="toolbar-actions"><button class="btn secondary" onclick="unifiedMonth(-1)">←</button><span class="month-badge">${esc(ml(date))}</span><button class="btn secondary" onclick="unifiedMonth(1)">→</button></div></div>${shiftTable}${specialTable}`;
+
+    const buttons=days.map(d=>`<th>${String(d).padStart(2,'0')}</th>`).join('');
+    const rows=employees.map(e=>{
+      const c=counters.get(e.id)||{M:0,T:0,'M/T':0,C:0,V:0,CS:0,AP:0,B:0};
+      return `<tr><th class="unified-name"><div class="employee-cell"><div class="avatar-small">${escU((e.nombre||'').split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase())}</div><strong>${escU(e.nombre)}</strong></div></th>${days.map(d=>{const dateKey=dk(y,m,d), value=state.get(`${dateKey}|${e.id}`)||'';return `<td class="unified-day-cell type-${value.replace('/','-').toLowerCase()}"><button class="unified-day-button ${value?'filled':''}" ${admin?'':'disabled'} title="${value?LABELS[value]:'Sin asignar'}" onclick="window.unifiedCycle('${e.id}','${dateKey}','${value}')">${value||'·'}</button></td>`}).join('')}${TYPES.map(t=>`<td class="unified-counter"><b>${c[t]}</b></td>`).join('')}</tr>`;
+    }).join('');
+
+    content.innerHTML=`<div class="unified-page">
+      <div class="calendar-toolbar"><div><span class="eyebrow">PLANIFICACIÓN MENSUAL</span><h3>Cuadrante de Turnos y Especiales</h3><p class="muted">Selecciona en cada día: <b>M</b>, <b>T</b>, <b>M/T</b>, <b>C</b>, <b>V</b>, <b>CS</b>, <b>AP</b> o <b>B</b>. Los contadores muestran las veces registradas durante el mes.</p></div><div class="toolbar-actions"><button class="btn secondary" onclick="window.unifiedMonth(-1)">←</button><span class="month-badge">${escU(ml(date))}</span><button class="btn secondary" onclick="window.unifiedMonth(1)">→</button></div></div>
+      <div class="unified-legend">${TYPES.map(t=>`<span><b class="u-code code-${t.replace('/','-').toLowerCase()}">${t}</b>${LABELS[t]}</span>`).join('')}<em>${admin?'Solo administrador puede modificar el cuadrante.':'Modo consulta.'}</em></div>
+      <div class="unified-table-wrap"><table class="unified-main-table"><thead><tr><th class="unified-name-head" rowspan="2">Empleado</th>${buttons}<th colspan="8">CONTADORES DEL MES</th></tr><tr>${days.map(()=>'<th class="day-sub">DÍA</th>').join('')} ${TYPES.map(t=>`<th class="counter-head">${t}</th>`).join('')}</tr></thead><tbody>${rows}</tbody><tfoot><tr><th>TOTALES</th>${days.map(()=>'<td></td>').join('')}${TYPES.map(t=>`<th>${totals[t]}</th>`).join('')}</tr></tfoot></table></div>
+      <div class="unified-footer"><span><b>${employees.length}</b> empleados · <b>${n}</b> días</span><span>M/T cuenta como una única casilla y también se refleja en su contador.</span></div>
+    </div>`;
+  }
+
+  window.unifiedCycle=async function(eid,date,current){
+    if(!admin)return;
+    const idx=TYPES.indexOf(current), next=TYPES[(idx+1)%TYPES.length]||'';
+    try{
+      if(current && SPECIAL.includes(current)) await db.from('especiales_calendario').delete().eq('empleado_id',eid).eq('fecha',date);
+      if(current && (current==='M'||current==='T'||current==='M/T')) await db.from('turnos_cuadrante').delete().eq('empleado_id',eid).eq('fecha',date);
+      if(next && SPECIAL.includes(next)){
+        const r=await db.from('especiales_calendario').upsert({empleado_id:eid,fecha:date,tipo:next},{onConflict:'fecha,empleado_id'}); if(r.error)throw r.error;
+      }else if(next){
+        const payload=next==='M/T'?['M','T']:[next];
+        for(const turno of payload){const r=await db.from('turnos_cuadrante').upsert({empleado_id:eid,fecha:date,turno},{onConflict:'fecha,empleado_id,turno'});if(r.error)throw r.error;}
+      }
+      const label=next?LABELS[next]:'Sin asignar';
+      if(typeof toast==='function')toast(label);
+      await unifiedPage();
+    }catch(e){if(typeof toast==='function')toast(e.message||'No se pudo guardar','error');}
   };
-  window.unifiedMonth=function(d){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()+d,1);render('cuadrantes');};
-  window.unifiedShift=async function(eid,date,t,on){if(!admin)return;const q=on?db.from('turnos_cuadrante').upsert({empleado_id:eid,fecha:date,turno:t},{onConflict:'fecha,empleado_id,turno'}):db.from('turnos_cuadrante').delete().eq('empleado_id',eid).eq('fecha',date).eq('turno',t);const r=await q;if(r.error){toast(r.error.message,'error');return;}render('cuadrantes');};
-  window.unifiedSpecial=async function(eid,key,delta){if(!admin)return;const r=await db.from('especiales').select('id,c,v,cs,ap,b').eq('empleado_id',eid).maybeSingle();if(r.error){toast(r.error.message,'error');return;}const row=r.data||{c:0,v:0,cs:0,ap:0,b:0};let v=Math.max(0,Number(row[key]||0)+delta);const payload={c:Number(row.c||0),v:Number(row.v||0),cs:Number(row.cs||0),ap:Number(row.ap||0),b:Number(row.b||0)};payload[key]=v;const q=row.id?db.from('especiales').update(payload).eq('id',row.id):db.from('especiales').insert({...payload,empleado_id:eid});if((await q).error){toast('No se pudo guardar el contador','error');return;}render('cuadrantes');};
-  const originalCuadrantes=window.cuadrantes;
-  window.cuadrantes=window.renderUnifiedCuadrante;
+
+  window.unifiedMonth=function(delta){const d=window.calendarDate||new Date();window.calendarDate=new Date(d.getFullYear(),d.getMonth()+delta,1);oldRender('cuadrantes');setTimeout(unifiedPage,0);};
+
+  window.render=async function(page='inicio'){
+    if(page==='especiales')page='cuadrantes';
+    if(page==='cuadrantes'){
+      await oldRender('cuadrantes');
+      await unifiedPage();
+      return;
+    }
+    return oldRender(page);
+  };
+
+  // El apartado Especiales deja de aparecer como sección independiente.
+  const oldNav=window.navItem;
+  if(oldNav)window.navItem=function(page,icon,label,active){if(page==='especiales')return '';return oldNav(page,icon,label,active);};
+
+  // Si el render original llama directamente a la función global, también la sustituimos.
+  window.cuadrantes=unifiedPage;
 })();
