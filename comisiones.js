@@ -1,6 +1,5 @@
 (function(){
   const originalRender = window.render;
-  let booted = false;
 
   async function comisionesPage(){
     const content = document.getElementById('content');
@@ -66,6 +65,4 @@
       }
     }, 200);
   };
-
-  if(!booted){ booted = true; setTimeout(() => { try { if(window.render) window.render('inicio'); } catch(e){} }, 0); }
 })();
