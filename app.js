@@ -54,11 +54,12 @@ async function render(page){
     </main>
   `;
 
-  document.querySelectorAll("[data-page]").forEach(button=>{
-    button.addEventListener("click",()=>{
-      render(button.dataset.page);
-    });
-  });
+  document.addEventListener("click",(e)=>{
+  const button=e.target.closest("[data-page]");
+  if(button){
+    render(button.dataset.page);
+  }
+});
 
   document.getElementById("menuBtn")?.addEventListener("click",()=>{
     document.getElementById("side")?.classList.toggle("open");
