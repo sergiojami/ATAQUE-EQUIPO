@@ -3,7 +3,13 @@
   const esc = value => String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#039;');
   const initials = name => String(name || 'AE').trim().split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase() || 'AE';
   const originalRender = window.portalRender;
+  const originalSetRoster = window.setRoster;
   if(typeof originalRender !== 'function') return;
+
+  window.setRoster = async function(...args){
+    if(!admin){ alert('Solo el administrador puede modificar el cuadrante.'); return; }
+    return originalSetRoster(...args);
+  };
 
   async function renderSpecials(){
     const c=document.getElementById('content');
