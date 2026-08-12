@@ -2,7 +2,84 @@ const db=supabase.createClient(AVIONICA_SUPABASE_URL,AVIONICA_SUPABASE_KEY);let 
 async function load(){let r=await db.from("profiles").select("id,full_name,phone,role").order("full_name");if(r.error){S.innerHTML=`<div class=login><div class=pick><div class=head><div class=logo>A</div><h1>AVIÓNICA</h1><p class=muted>${esc(r.error.message)}</p></div></div></div>`;return false}employees=r.data||[];return true}
 async function choose(){if(!await load())return;S.innerHTML=`<div class=login><div class=pick><div class=head><div class=logo>A</div><h1>AVIÓNICA</h1><p class=muted>Selecciona tu nombre para entrar</p></div><div class=people>${employees.map(e=>`<button class=person onclick="enter('${e.id}')"><div class=avatar>${ini(e.full_name)}</div><b>${esc(e.full_name)}</b><div class=muted>Miembro del equipo</div></button>`).join("")}</div><div class=admin><button class=btn onclick=pin()>⚙ Administración</button></div></div></div>`}
 async function enter(id){current=employees.find(e=>e.id===id);admin=false;render("inicio")}
-async function render(page){let title=page==="inicio"?"Inicio":page[0].toUpperCase()+page.slice(1);S.innerHTML=`<aside class=side id=side><div class=brand><div class=logo>A</div><div><b>AVIÓNICA</b><small>Portal del equipo</small></div></div><div class=nav>${nav.map(n=>`<button type="button" class=${page===n[0]?"active":""} data-page="${n[0]}">${n[1]}</button>`).join("")}${admin?`<button type="button" class=${page==="admin"?"active":""} data-page="admin">⚙ Administración</button>`:""}</div><div class=sidefoot>Supabase · v4</div></aside><main class=main><header class=top><div><button type="button" class=menu id=menuBtn>☰</button><h2>${title}</h2></div><div class=profile><div class=avatar>${admin?"AD":ini(current.full_name)}</div><div><b>${admin?"Administrador":esc(current.full_name)}</b><div class=muted>${admin?"Control general":"Empleado"}</div></div><button type="button" class=logout id=logoutBtn>Salir</button></div></header><div class=content id=content></div></main>`;document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>render(b.dataset.page)));document.getElementById("menuBtn")?.addEventListener("click",()=>document.getElementById("side")?.classList.toggle("open"));document.getElementById("logoutBtn")?.addEventListener("click",choose);await ({inicio,cuadrantes,inventario,noticias,novedades,perfil,admin:adminPage})[page]()}
+async function render(page){
+  let title=page==="inicio"?"Inicio":page[0].toUpperCase()+page.slice(1);
+
+  S.innerHTML=`
+    <aside class="side" id="side">
+      <div class="brand">
+        <div class="logo">A</div>
+        <div><b>AVIÓNICA</b><small>Portal del equipo</small></div>
+      </div>
+
+      <div class="nav">
+        ${nav.map(n=>`
+          <button type="button"
+                  class="${page===n[0]?"active":""}"
+                  data-page="${n[0]}">
+            ${n[1]}
+          </button>
+        `).join("")}
+
+        ${admin?`
+          <button type="button"
+                  class="${page==="admin"?"active":""}"
+                  data-page="admin">
+            ⚙ Administración
+          </button>
+        `:""}
+      </div>
+
+      <div class="sidefoot">Supabase · v4</div>
+    </aside>
+
+    <main class="main">
+      <header class="top">
+        <div>
+          <button type="button" class="menu" id="menuBtn">☰</button>
+          <h2>${title}</h2>
+        </div>
+
+        <div class="profile">
+          <div class="avatar">${admin?"AD":ini(current.full_name)}</div>
+          <div>
+            <b>${admin?"Administrador":esc(current.full_name)}</b>
+            <div class="muted">${admin?"Control general":"Empleado"}</div>
+          </div>
+          <button type="button" class="logout" id="logoutBtn">Salir</button>
+        </div>
+      </header>
+
+      <div class="content" id="content"></div>
+    </main>
+  `;
+
+  document.querySelectorAll("[data-page]").forEach(button=>{
+    button.addEventListener("click",()=>{
+      render(button.dataset.page);
+    });
+  });
+
+  document.getElementById("menuBtn")?.addEventListener("click",()=>{
+    document.getElementById("side")?.classList.toggle("open");
+  });
+
+  document.getElementById("logoutBtn")?.addEventListener("click",choose);
+
+  const pages={
+    inicio,
+    cuadrantes,
+    inventario,
+    noticias,
+    novedades,
+    perfil,
+    admin:adminPage
+  };
+
+  if(pages[page]){
+    await pages[page]();
+  }
+}
 async function inicio(){let [a,b,c,d]=await Promise.all([admin?db.from("shifts").select("*",{count:"exact",head:true}):db.from("shifts").select("*",{count:"exact",head:true}).eq("employee_id",current.id),db.from("inventory").select("*",{count:"exact",head:true}),db.from("news").select("*",{count:"exact",head:true}),db.from("updates").select("*",{count:"exact",head:true})]);content.innerHTML=`<div class=hero><h2>Hola, ${esc((admin?"Administrador":current.full_name).split(" ")[0])} 👋</h2><div>Datos reales cargados desde Supabase.</div></div><div class=grid>${[["Turnos",a.count],["Inventario",b.count],["Noticias",c.count],["Novedades",d.count]].map(x=>`<div class="card stat"><span class=muted>${x[0]}</span><b>${x[1]??0}</b></div>`).join("")}</div>`}
 async function cuadrantes(){let q=admin?db.from("shifts").select("*,profiles(full_name)").order("date"):db.from("shifts").select("*").eq("employee_id",current.id).order("date");let r=await q;content.innerHTML=`<div class=row><h3>Cuadrantes</h3>${admin?'<button class=btn onclick=newShift()>+ Añadir turno</button>':""}</div><div class=card><table class=table><tr><th>Fecha</th><th>Empleado</th><th>Horario</th><th>Servicio</th><th></th></tr>${(r.data||[]).map(x=>`<tr><td>${x.date}</td><td>${esc(x.profiles?.full_name||current.full_name)}</td><td>${x.start_time||""} – ${x.end_time||""}</td><td>${esc(x.service)}</td><td>${admin?`<button class="smallbtn danger" onclick="del('shifts','${x.id}','cuadrantes')">Eliminar</button>`:""}</td></tr>`).join("")}</table></div>`}
 async function inventario(){let r=await db.from("inventory").select("*").order("name");content.innerHTML=`<div class=row><h3>Inventario</h3><button class=btn onclick=newInv()>+ Añadir material</button></div><div class=card><table class=table><tr><th>Ref.</th><th>Material</th><th>Cantidad</th><th>Ubicación</th><th>Estado</th><th>Acciones</th></tr>${(r.data||[]).map(x=>`<tr><td>${esc(x.reference)}</td><td>${esc(x.name)}</td><td>${x.quantity}</td><td>${esc(x.location)}</td><td><span class=tag>${esc(x.status||"")}</span></td><td><button class=smallbtn onclick="editInv('${x.id}')">Editar</button> <button class="smallbtn danger" onclick="del('inventory','${x.id}','inventario')">Eliminar</button></td></tr>`).join("")}</table></div>`}
