@@ -1,0 +1,35 @@
+/* Mejoras visuales Aviónica */
+body{background:#eef3f7}
+.login-new,.app-shell-new{position:relative;overflow:hidden}
+.login-new::before,.app-shell-new::before{content:"";position:fixed;right:-70px;top:92px;width:470px;height:470px;border-radius:50%;background:url("parche-avionica.svg") center/contain no-repeat;opacity:.07;pointer-events:none;z-index:0;filter:saturate(.85)}
+.login-new>*{position:relative;z-index:1}
+.app-shell-new>.main-new{position:relative;z-index:1}
+.app-shell-new::before{z-index:0}
+.sidebar-new,.topbar-new{z-index:10}
+.content-new{position:relative;z-index:1}
+.hero,.card,.calendar-table-wrap,.calendar-summary,.loading-new{backdrop-filter:blur(2px)}
+.shift-calendar .subhead{font-size:0;letter-spacing:0}
+.shift-calendar .subhead::after{font-size:11px;font-weight:900}
+.shift-calendar .morning-head::after{content:"M"}
+.shift-calendar .afternoon-head::after{content:"T"}
+.calendar-summary .legend-item strong{font-size:12px;color:#173451}
+.admin-page{max-width:1100px}
+.admin-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 24px;border-radius:16px;background:linear-gradient(120deg,#12365c,#1b6f8d);color:#fff;box-shadow:0 12px 30px #18345218}
+.admin-hero h3{margin:5px 0 4px;font-size:24px}
+.admin-hero .muted{color:#d2e1eb}
+.employee-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}
+.employee-manager{margin-top:16px}
+.employee-admin-list{display:grid;gap:8px;margin-top:16px}
+.employee-admin-row{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:12px;border:1px solid #e1e9f0;border-radius:11px;background:#fbfdff}
+.employee-admin-main{display:flex;align-items:center;gap:10px;min-width:0}
+.employee-admin-main strong,.employee-admin-main small{display:block}
+.employee-admin-main strong{font-size:14px}
+.employee-admin-main small{font-size:11px;color:#7c8b9a;margin-top:3px}
+.employee-admin-actions{display:flex;gap:7px;flex:0 0 auto}
+.employee-modal .employee-form-card{width:min(520px,100%);padding:25px}
+.employee-form-card form{display:grid;gap:13px;margin-top:18px}
+.employee-form-card label{font-size:12px;font-weight:750;color:#40556a}
+.employee-form-card input{display:block;width:100%;margin-top:6px;padding:11px 12px;border:1px solid #d7e1e9;border-radius:9px;font:inherit;color:#173451;background:#fff}
+.employee-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:7px}
+.employee-form-actions .secondary{background:#fff;color:#173451;border:1px solid #d5e0e9}
+@media(max-width:800px){.login-new::before,.app-shell-new::before{width:300px;height:300px;right:-90px;top:100px;opacity:.05}.admin-hero{align-items:flex-start;flex-direction:column}.employee-stats{grid-template-columns:1fr}.employee-admin-row{align-items:flex-start}.employee-admin-actions{flex-direction:column}}
