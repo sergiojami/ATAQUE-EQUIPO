@@ -1,6 +1,5 @@
 (function(){
   const originalRender = window.render;
-  const originalNavItem = window.navItem;
   let booted = false;
 
   async function comisionesPage(){
@@ -11,6 +10,23 @@
     const rows = r.data || [];
     window.__comisionesCache = rows;
     content.innerHTML = `<div class="calendar-toolbar"><div><span class="eyebrow">ACTIVIDAD OPERATIVA</span><h3>Comisiones de Servicio / Ejercicios / Misiones</h3><p class="muted">Registro centralizado de ejercicio, fecha y lugar. ${admin ? 'Solo el administrador puede añadir, editar o eliminar registros.' : 'Modo consulta.'}</p></div>${admin ? '<button class="btn primary" onclick="comisionForm()">+ Añadir registro</button>' : ''}</div><div class="panel commission-panel"><div class="commission-summary"><div><span class="summary-label">REGISTROS</span><strong>${rows.length}</strong></div><div><span class="summary-label">ÚLTIMA FECHA</span><strong>${rows.length ? new Date(rows[0].fecha+'T00:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—'}</strong></div><div class="summary-note">${admin ? 'Mantén actualizado el calendario operativo desde este apartado.' : 'La información está disponible para todo el equipo.'}</div></div><div class="table-scroll"><table class="commission-table"><thead><tr><th>Ejercicio / Misión</th><th>Fecha</th><th>Lugar</th>${admin ? '<th>Acciones</th>' : ''}</tr></thead><tbody>${rows.length ? rows.map(x => `<tr><td><strong>${esc(x.ejercicio)}</strong></td><td><span class="date-chip">${new Date(x.fecha+'T00:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})}</span></td><td>${esc(x.lugar)}</td>${admin ? `<td><button class="table-action" onclick="comisionForm('${x.id}')">✎ Editar</button><button class="table-action danger" onclick="deleteComision('${x.id}')">🗑 Eliminar</button></td>` : ''}</tr>`).join('') : `<tr><td colspan="${admin ? 4 : 3}"><div class="empty-state compact"><div>✈</div><h3>No hay registros todavía</h3><p>${admin ? 'Añade el primer ejercicio, fecha y lugar.' : 'Todavía no hay actividades registradas.'}</p></div></td></tr>`}</tbody></table></div></div>`;
+  }
+
+  function ensureNav(page){
+    const nav = document.querySelector('.side-nav');
+    if(!nav) return;
+    let link = Array.from(nav.querySelectorAll('.side-link')).find(el => el.dataset.comisiones === '1');
+    if(!link){
+      link = document.createElement('button');
+      link.className = 'side-link';
+      link.dataset.comisiones = '1';
+      link.innerHTML = '<span class="side-icon">✈</span><span>Comisiones de Servicio / Ejercicios / Misiones</span>';
+      link.onclick = () => window.render('comisiones');
+      const special = Array.from(nav.querySelectorAll('.side-link')).find(el => el.textContent.includes('Especiales'));
+      if(special) special.insertAdjacentElement('afterend',link); else nav.appendChild(link);
+    }
+    nav.querySelectorAll('.side-link').forEach(el => el.classList.remove('active'));
+    if(page === 'comisiones') link.classList.add('active');
   }
 
   window.comisionForm = function(id=''){
@@ -39,23 +55,16 @@
     await comisionesPage(); toast('Registro eliminado');
   };
 
-  window.navItem = function(page,icon,label,active){
-    const base = originalNavItem(page,icon,label,active);
-    if(label === 'Especiales') return base + originalNavItem('comisiones','✈','Comisiones de Servicio / Ejercicios / Misiones',active);
-    return base;
-  };
-
   window.render = function(page='inicio'){
-    if(page !== 'comisiones') return originalRender(page);
-    originalRender('inicio');
+    originalRender(page === 'comisiones' ? 'inicio' : page);
     setTimeout(async () => {
-      const title = document.querySelector('.topbar-left h1');
-      if(title) title.textContent = 'Comisiones de Servicio / Ejercicios / Misiones';
-      document.querySelectorAll('.side-link').forEach(el => el.classList.remove('active'));
-      const link = Array.from(document.querySelectorAll('.side-link')).find(el => el.textContent.includes('Comisiones de Servicio / Ejercicios / Misiones'));
-      if(link) link.classList.add('active');
-      await comisionesPage();
-    }, 250);
+      ensureNav(page);
+      if(page === 'comisiones'){
+        const title = document.querySelector('.topbar-left h1');
+        if(title) title.textContent = 'Comisiones de Servicio / Ejercicios / Misiones';
+        await comisionesPage();
+      }
+    }, 200);
   };
 
   if(!booted){ booted = true; setTimeout(() => { try { if(window.render) window.render('inicio'); } catch(e){} }, 0); }
