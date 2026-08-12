@@ -4,1497 +4,1140 @@ const db = supabase.createClient(
 );
 
 let employees = [];
-let currentUser = null;
-let currentPage = "inicio";
-let isAdmin = false;
+let current = null;
+let admin = false;
+let calendarDate = new Date();
 
-const app = document.getElementById("screen");
+const S = document.getElementById("screen");
 
-const esc = (value) =>
-  String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+const esc = x =>
+  String(x ?? "").replace(/[&<>"']/g, m => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
+  }[m]));
 
-async function loadEmployees() {
-  const { data, error } = await db
+const ini = n =>
+  String(n || "")
+    .split(" ")
+    .map(x => x[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+const nav = [
+  ["inicio", "⌂ Inicio"],
+  ["cuadrantes", "▦ Cuadrantes"],
+  ["flota", "✈ Flota"],
+  ["novedades", "✦ Novedades"],
+  ["perfil", "◯ Mi perfil"]
+];
+
+async function load() {
+  const r = await db
     .from("profiles")
-    .select("*")
+    .select("id,full_name,phone,role")
     .order("full_name");
 
-  if (error) {
-    console.error(error);
-    app.innerHTML = `
-      <div class="error">
-        No se pudieron cargar los empleados.
-        <br><small>${esc(error.message)}</small>
-      </div>
-    `;
-    return;
-  }
-
-  employees = data || [];
-
-  if (!employees.length) {
-    app.innerHTML = `
+  if (r.error) {
+    S.innerHTML = `
       <div class="login">
-        <div class="logo-mark">AE</div>
-        <h1>ATAQUE-EQUIPO</h1>
-        <p>No hay empleados registrados todavía.</p>
-      </div>
-    `;
-    return;
+        <div class="pick">
+          <div class="head">
+            <div class="logo">A</div>
+            <h1>ATAQUE-EQUIPO</h1>
+            <p class="muted">${esc(r.error.message)}</p>
+          </div>
+        </div>
+      </div>`;
+    return false;
   }
 
-  chooseEmployee();
+  employees = r.data || [];
+  return true;
 }
 
-function chooseEmployee() {
-  app.innerHTML = `
+async function choose() {
+  if (!await load()) return;
+
+  S.innerHTML = `
     <div class="login">
-      <div class="logo-mark">AE</div>
+      <div class="pick">
+        <div class="head">
+          <div class="logo">A</div>
+          <h1>ATAQUE-EQUIPO</h1>
+          <p class="muted">Selecciona tu nombre para entrar</p>
+        </div>
 
-      <h1>ATAQUE-EQUIPO</h1>
-      <p class="muted">Portal del equipo</p>
+        <div class="people">
+          ${employees.map(e => `
+            <button class="person" onclick="enter('${e.id}')">
+              <div class="avatar">${ini(e.full_name)}</div>
+              <b>${esc(e.full_name)}</b>
+              <div class="muted">${esc(e.phone || "")}</div>
+            </button>
+          `).join("")}
+        </div>
 
-      <div class="login-card">
-        <h2>Acceso</h2>
-
-        <label>Selecciona tu nombre</label>
-
-        <select id="employeeSelect">
-          <option value="">Seleccionar empleado...</option>
-          ${employees
-            .map(
-              (e) => `
-                <option value="${esc(e.id)}">
-                  ${esc(e.full_name || e.name || "Empleado")}
-                </option>
-              `
-            )
-            .join("")}
-        </select>
-
-        <button class="primary" onclick="enterApp()">
-          Entrar
-        </button>
+        <div class="admin">
+          <button class="btn" onclick="pin()">⚙ Administración</button>
+        </div>
       </div>
-    </div>
-  `;
+    </div>`;
 }
 
-async function enterApp() {
-  const select = document.getElementById("employeeSelect");
-  const id = select.value;
-
-  if (!id) {
-    alert("Selecciona tu nombre.");
-    return;
-  }
-
-  currentUser = employees.find((e) => String(e.id) === String(id));
-
-  isAdmin =
-    currentUser &&
-    ["admin", "administrador"].includes(
-      String(currentUser.role || "").toLowerCase()
-    );
-
+async function enter(id) {
+  current = employees.find(e => e.id === id);
+  admin = false;
   render("inicio");
 }
 
-function render(page) {
-  currentPage = page;
-
-  const nav = [
-    ["inicio", "Inicio"],
-    ["cuadrante", "Cuadrante"],
-    ["novedades", "Novedades"],
-    ["flota", "Flota"],
-    ["empleados", "Empleados"]
-  ];
-
-  app.innerHTML = `
-    <div class="app-shell">
-
-      <aside class="sidebar" id="sidebar">
-
-        <div class="brand">
-          <div class="logo-mark small">AE</div>
-          <div>
-            <strong>ATAQUE-EQUIPO</strong>
-            <small>Portal del equipo</small>
-          </div>
-        </div>
-
-        <nav>
-          ${nav
-            .map(
-              ([id, label]) => `
-                <button
-                  class="${currentPage === id ? "active" : ""}"
-                  onclick="render('${id}')">
-                  ${label}
-                </button>
-              `
-            )
-            .join("")}
-        </nav>
-
-        <div class="sidebar-bottom">
-          <div class="user-mini">
-            <strong>${esc(
-              currentUser?.full_name || currentUser?.name || ""
-            )}</strong>
-            <span>${isAdmin ? "Administrador" : "Empleado"}</span>
-          </div>
-
-          <button class="logout" onclick="chooseEmployee()">
-            Cambiar usuario
-          </button>
-        </div>
-      </aside>
-
-      <main class="main">
-
-        <header class="topbar">
-          <button class="menu-btn" onclick="toggleMenu()">☰</button>
-
-          <div>
-            <h1>${getPageTitle()}</h1>
-            <p>
-              ${esc(
-                currentUser?.full_name ||
-                  currentUser?.name ||
-                  "ATAQUE-EQUIPO"
-              )}
-            </p>
-          </div>
-        </header>
-
-        <section class="content" id="content">
-          <div class="loading">Cargando...</div>
-        </section>
-
-      </main>
-    </div>
-  `;
-
-  loadPage();
-}
-
-function getPageTitle() {
+async function render(page) {
   const titles = {
     inicio: "Inicio",
-    cuadrante: "Cuadrante",
-    novedades: "Novedades",
+    cuadrantes: "Cuadrantes",
     flota: "Flota",
-    empleados: "Empleados"
+    novedades: "Novedades",
+    perfil: "Mi perfil",
+    admin: "Administración"
   };
 
-  return titles[currentPage] || "ATAQUE-EQUIPO";
-}
+  S.innerHTML = `
+    <aside class="side" id="side">
 
-function toggleMenu() {
-  document.getElementById("sidebar")?.classList.toggle("open");
-}
+      <div class="brand">
+        <div class="logo">A</div>
+        <div>
+          <b>ATAQUE-EQUIPO</b>
+          <small>Portal del equipo</small>
+        </div>
+      </div>
 
-async function loadPage() {
-  if (currentPage === "inicio") return homePage();
-  if (currentPage === "cuadrante") return shiftsPage();
-  if (currentPage === "novedades") return newsPage();
-  if (currentPage === "flota") return fleetPage();
-  if (currentPage === "empleados") return employeesPage();
+      <div class="nav">
+        ${nav.map(n => `
+          <button
+            class="${page === n[0] ? "active" : ""}"
+            onclick="render('${n[0]}')">
+            ${n[1]}
+          </button>
+        `).join("")}
+
+        ${admin ? `
+          <button
+            class="${page === "admin" ? "active" : ""}"
+            onclick="render('admin')">
+            ⚙ Administración
+          </button>
+        ` : ""}
+      </div>
+
+      <div class="sidefoot">
+        ATAQUE-EQUIPO
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <header class="top">
+
+        <div>
+          <button
+            class="menu"
+            onclick="side.classList.toggle('open')">
+            ☰
+          </button>
+
+          <h2>${titles[page] || page}</h2>
+        </div>
+
+        <div class="profile">
+          <div class="avatar">
+            ${admin ? "AD" : ini(current?.full_name)}
+          </div>
+
+          <div>
+            <b>
+              ${admin ? "Administrador" : esc(current?.full_name)}
+            </b>
+
+            <div class="muted">
+              ${admin ? "Control general" : "Empleado"}
+            </div>
+          </div>
+
+          <button class="logout" onclick="choose()">
+            Salir
+          </button>
+        </div>
+
+      </header>
+
+      <div class="content" id="content"></div>
+
+    </main>
+  `;
+
+  const pages = {
+    inicio,
+    cuadrantes,
+    flota,
+    novedades,
+    perfil,
+    admin: adminPage
+  };
+
+  if (pages[page]) {
+    await pages[page]();
+  }
 }
 
 /* =========================
    INICIO
 ========================= */
 
-async function homePage() {
-  const content = document.getElementById("content");
-
-  const today = new Date().toISOString().slice(0, 10);
-
-  const { data: todayShifts } = await db
-    .from("shifts")
-    .select("*")
-    .eq("shift_date", today);
-
-  const { data: news } = await db
-    .from("news")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(3);
+async function inicio() {
+  const [shifts, fleet, updates] = await Promise.all([
+    db.from("shifts").select("*"),
+    db.from("inventory").select("*"),
+    db.from("updates").select("*")
+  ]);
 
   content.innerHTML = `
-    <div class="welcome">
+    <div class="hero">
+      <h2>
+        Hola, ${esc(
+          (admin ? "Administrador" : current?.full_name || "")
+            .split(" ")[0]
+        )} 👋
+      </h2>
+
       <div>
-        <span class="eyebrow">PORTAL DEL EQUIPO</span>
-        <h2>Bienvenido, ${esc(
-          currentUser?.full_name || currentUser?.name
-        )}</h2>
-        <p>
-          Consulta el cuadrante, las novedades y el estado de la flota.
-        </p>
+        Bienvenido al portal de ATAQUE-EQUIPO.
       </div>
     </div>
 
-    <div class="stats">
+    <div class="grid">
 
-      <div class="stat-card">
-        <span>Empleados</span>
-        <strong>${employees.length}</strong>
+      <div class="card stat">
+        <span class="muted">Turnos</span>
+        <b>${shifts.data?.length || 0}</b>
       </div>
 
-      <div class="stat-card">
-        <span>Turnos hoy</span>
-        <strong>${todayShifts?.length || 0}</strong>
+      <div class="card stat">
+        <span class="muted">Aeronaves</span>
+        <b>${fleet.data?.length || 0}</b>
       </div>
 
-      <div class="stat-card">
-        <span>Novedades</span>
-        <strong>${news?.length || 0}</strong>
+      <div class="card stat">
+        <span class="muted">Novedades</span>
+        <b>${updates.data?.length || 0}</b>
       </div>
 
-    </div>
-
-    <div class="section-head">
-      <div>
-        <h2>Últimas novedades</h2>
+      <div class="card stat">
+        <span class="muted">Empleados</span>
+        <b>${employees.length}</b>
       </div>
 
-      <button class="secondary" onclick="render('novedades')">
-        Ver todas
-      </button>
-    </div>
-
-    <div class="cards">
-      ${
-        news?.length
-          ? news.map(newsCard).join("")
-          : `<div class="empty">No hay novedades todavía.</div>`
-      }
     </div>
   `;
 }
 
 /* =========================
-   CUADRANTE
+   CUADRANTES
 ========================= */
 
-async function shiftsPage() {
-  const content = document.getElementById("content");
+async function cuadrantes() {
 
-  const { data, error } = await db
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+
+  const start =
+    firstDay.toISOString().slice(0, 10);
+
+  const end =
+    lastDay.toISOString().slice(0, 10);
+
+  let query = db
     .from("shifts")
-    .select("*")
-    .order("shift_date", { ascending: true });
+    .select("*,profiles(full_name)")
+    .gte("date", start)
+    .lte("date", end)
+    .order("date");
 
-  if (error) {
-    content.innerHTML = errorBox(error);
-    return;
+  if (!admin && current) {
+    query = query.eq("employee_id", current.id);
   }
 
-  const grouped = {};
+  const r = await query;
 
-  (data || []).forEach((shift) => {
-    const date = shift.shift_date;
+  const shifts = r.data || [];
 
-    if (!grouped[date]) {
-      grouped[date] = {
-        morning: "",
-        afternoon: "",
-        note: ""
-      };
-    }
+  const monthName = new Intl.DateTimeFormat(
+    "es-ES",
+    { month: "long", year: "numeric" }
+  ).format(calendarDate);
 
-    if (
-      String(shift.shift || "").toLowerCase().includes("mañ") ||
-      String(shift.shift || "").toLowerCase().includes("man")
-    ) {
-      grouped[date].morning = shift;
-    } else {
-      grouped[date].afternoon = shift;
-    }
+  const days = [];
 
-    if (shift.note) grouped[date].note = shift.note;
-  });
+  const startWeek =
+    firstDay.getDay() === 0
+      ? 6
+      : firstDay.getDay() - 1;
+
+  for (let i = 0; i < startWeek; i++) {
+    days.push(`<div class="calendar-empty"></div>`);
+  }
+
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+
+    const date =
+      `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    const dayShifts =
+      shifts.filter(x => x.date === date);
+
+    days.push(`
+      <div class="calendar-day">
+
+        <div class="calendar-number">
+          ${day}
+        </div>
+
+        ${dayShifts.map(x => `
+          <div class="shift-card">
+
+            <b>
+              ${esc(
+                x.profiles?.full_name ||
+                employees.find(e => e.id === x.employee_id)?.full_name ||
+                "Empleado"
+              )}
+            </b>
+
+            <div>
+              ${esc(x.start_time || "")}
+              ${x.end_time ? " – " + esc(x.end_time) : ""}
+            </div>
+
+            ${x.service ? `
+              <small>${esc(x.service)}</small>
+            ` : ""}
+
+            ${x.notes ? `
+              <small>📝 ${esc(x.notes)}</small>
+            ` : ""}
+
+            ${admin ? `
+              <div class="shift-actions">
+                <button
+                  class="smallbtn"
+                  onclick="editShift('${x.id}')">
+                  Editar
+                </button>
+
+                <button
+                  class="smallbtn danger"
+                  onclick="deleteShift('${x.id}')">
+                  Eliminar
+                </button>
+              </div>
+            ` : ""}
+
+          </div>
+        `).join("")}
+
+        ${admin ? `
+          <button
+            class="calendar-add"
+            onclick="newShift('${date}')">
+            +
+          </button>
+        ` : ""}
+
+      </div>
+    `);
+  }
 
   content.innerHTML = `
-    <div class="section-head">
+    <div class="row">
+
       <div>
-        <span class="eyebrow">PLANIFICACIÓN</span>
-        <h2>Cuadrante</h2>
-        <p>Calendario de turnos del equipo.</p>
+        <h3>Cuadrante de trabajo</h3>
+        <p class="muted">
+          ${monthName}
+        </p>
       </div>
 
-      ${
-        isAdmin
-          ? `<button class="primary" onclick="newShift()">
-              + Añadir turno
-             </button>`
-          : ""
-      }
+      <div>
+        <button class="btn" onclick="previousMonth()">
+          ←
+        </button>
+
+        <button class="btn" onclick="todayMonth()">
+          Hoy
+        </button>
+
+        <button class="btn" onclick="nextMonth()">
+          →
+        </button>
+      </div>
+
     </div>
 
     <div class="calendar">
 
-      ${Object.keys(grouped).length
-        ? Object.entries(grouped)
-            .map(([date, item]) => calendarDay(date, item))
-            .join("")
-        : `<div class="empty">No hay turnos registrados.</div>`}
+      <div class="calendar-head">LUN</div>
+      <div class="calendar-head">MAR</div>
+      <div class="calendar-head">MIÉ</div>
+      <div class="calendar-head">JUE</div>
+      <div class="calendar-head">VIE</div>
+      <div class="calendar-head">SÁB</div>
+      <div class="calendar-head">DOM</div>
+
+      ${days.join("")}
 
     </div>
   `;
 }
 
-function calendarDay(date, item) {
-  const formatted = new Date(date + "T12:00:00").toLocaleDateString(
-    "es-ES",
-    {
-      weekday: "long",
-      day: "numeric",
-      month: "long"
-    }
-  );
-
-  return `
-    <article class="calendar-day">
-
-      <div class="calendar-date">
-        <strong>${esc(formatted)}</strong>
-      </div>
-
-      <div class="shift-grid">
-
-        <div class="shift morning">
-          <span>MAÑANA</span>
-          <strong>${esc(item.morning?.employee_name || "—")}</strong>
-          <small>${esc(item.morning?.note || "")}</small>
-
-          ${
-            isAdmin && item.morning
-              ? `<button onclick="editShift('${item.morning.id}')">
-                  Editar
-                 </button>`
-              : ""
-          }
-        </div>
-
-        <div class="shift afternoon">
-          <span>TARDE</span>
-          <strong>${esc(item.afternoon?.employee_name || "—")}</strong>
-          <small>${esc(item.afternoon?.note || "")}</small>
-
-          ${
-            isAdmin && item.afternoon
-              ? `<button onclick="editShift('${item.afternoon.id}')">
-                  Editar
-                 </button>`
-              : ""
-          }
-        </div>
-
-      </div>
-
-      ${
-        item.note
-          ? `<div class="calendar-note">
-              <strong>Nota:</strong> ${esc(item.note)}
-             </div>`
-          : ""
-      }
-
-    </article>
-  `;
+function previousMonth() {
+  calendarDate.setMonth(calendarDate.getMonth() - 1);
+  render("cuadrantes");
 }
 
-async function newShift() {
-  const date = prompt("Fecha (AAAA-MM-DD):");
-  if (!date) return;
-
-  const employee = prompt("Nombre del empleado:");
-  if (!employee) return;
-
-  const shift = prompt("Turno: mañana o tarde");
-  if (!shift) return;
-
-  const note = prompt("Nota (opcional):") || "";
-
-  const { error } = await db.from("shifts").insert({
-    shift_date: date,
-    employee_name: employee,
-    shift: shift,
-    note: note
-  });
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  shiftsPage();
+function nextMonth() {
+  calendarDate.setMonth(calendarDate.getMonth() + 1);
+  render("cuadrantes");
 }
 
-async function editShift(id) {
-  const { data, error } = await db
-    .from("shifts")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  const employee =
-    prompt("Empleado:", data.employee_name || "") ??
-    data.employee_name;
-
-  const note =
-    prompt("Nota:", data.note || "") ??
-    data.note;
-
-  const { error: updateError } = await db
-    .from("shifts")
-    .update({
-      employee_name: employee,
-      note: note
-    })
-    .eq("id", id);
-
-  if (updateError) {
-    alert(updateError.message);
-    return;
-  }
-
-  shiftsPage();
+function todayMonth() {
+  calendarDate = new Date();
+  render("cuadrantes");
 }
 
 /* =========================
-   NOVEDADES
+   NUEVO TURNO
 ========================= */
 
-async function newsPage() {
-  const content = document.getElementById("content");
+async function newShift(date) {
 
-  const { data, error } = await db
-    .from("news")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const employee = prompt(
+    "UUID del empleado:\n\n" +
+    employees.map(e =>
+      `${e.id} → ${e.full_name}`
+    ).join("\n")
+  );
 
-  if (error) {
-    content.innerHTML = errorBox(error);
+  if (!employee) return;
+
+  const start =
+    prompt("Hora de inicio", "08:00");
+
+  if (!start) return;
+
+  const end =
+    prompt("Hora de finalización", "16:00");
+
+  if (!end) return;
+
+  const service =
+    prompt("Turno / servicio", "Turno de mañana") || "";
+
+  const notes =
+    prompt("Nota", "") || "";
+
+  const r = await db
+    .from("shifts")
+    .insert({
+      date,
+      employee_id: employee,
+      start_time: start,
+      end_time: end,
+      service,
+      notes
+    });
+
+  if (r.error) {
+    alert(r.error.message);
     return;
   }
 
-  content.innerHTML = `
-    <div class="section-head">
-      <div>
-        <span class="eyebrow">COMUNICACIÓN</span>
-        <h2>Novedades</h2>
-        <p>Información compartida por todo el equipo.</p>
-      </div>
-
-      <button class="primary" onclick="newNews()">
-        + Nueva novedad
-      </button>
-    </div>
-
-    <div class="news-list">
-
-      ${
-        data?.length
-          ? data.map(newsCardFull).join("")
-          : `<div class="empty">
-              Todavía no hay novedades.
-             </div>`
-      }
-
-    </div>
-  `;
+  render("cuadrantes");
 }
 
-function newsCard(item) {
-  return `
-    <article class="news-card">
-      <span class="date">
-        ${formatDate(item.created_at)}
-      </span>
+/* =========================
+   EDITAR TURNO
+========================= */
 
-      <h3>${esc(item.title)}</h3>
+async function editShift(id) {
 
-      <p>${esc(item.body)}</p>
-    </article>
-  `;
-}
-
-function newsCardFull(item) {
-  return `
-    <article class="news-card full">
-
-      <div class="news-top">
-        <span class="date">
-          ${formatDate(item.created_at)}
-        </span>
-
-        <div>
-          <button
-            class="icon-btn"
-            onclick="editNews('${item.id}')">
-            Editar
-          </button>
-
-          <button
-            class="danger-btn"
-            onclick="deleteNews('${item.id}')">
-            Eliminar
-          </button>
-        </div>
-      </div>
-
-      <h3>${esc(item.title)}</h3>
-
-      <p>${esc(item.body)}</p>
-
-    </article>
-  `;
-}
-
-async function newNews() {
-  const title = prompt("Título de la novedad:");
-  if (!title) return;
-
-  const body = prompt("Texto de la novedad:");
-  if (!body) return;
-
-  const { error } = await db.from("news").insert({
-    title,
-    body
-  });
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  newsPage();
-}
-
-async function editNews(id) {
-  const { data, error } = await db
-    .from("news")
+  const r = await db
+    .from("shifts")
     .select("*")
     .eq("id", id)
     .single();
 
-  if (error) {
-    alert(error.message);
+  if (r.error) {
+    alert(r.error.message);
     return;
   }
 
-  const title =
-    prompt("Título:", data.title) ??
-    data.title;
+  const x = r.data;
 
-  const body =
-    prompt("Texto:", data.body) ??
-    data.body;
+  const start =
+    prompt("Hora de inicio", x.start_time || "");
 
-  const { error: updateError } = await db
-    .from("news")
+  if (start === null) return;
+
+  const end =
+    prompt("Hora de finalización", x.end_time || "");
+
+  if (end === null) return;
+
+  const service =
+    prompt("Turno / servicio", x.service || "");
+
+  if (service === null) return;
+
+  const notes =
+    prompt("Nota", x.notes || "");
+
+  if (notes === null) return;
+
+  const u = await db
+    .from("shifts")
     .update({
-      title,
-      body
+      start_time: start,
+      end_time: end,
+      service,
+      notes
     })
     .eq("id", id);
 
-  if (updateError) {
-    alert(updateError.message);
+  if (u.error) {
+    alert(u.error.message);
     return;
   }
 
-  newsPage();
+  render("cuadrantes");
 }
 
-async function deleteNews(id) {
-  if (!confirm("¿Eliminar esta novedad?")) return;
+async function deleteShift(id) {
 
-  const { error } = await db
-    .from("news")
+  if (!confirm("¿Quieres eliminar este turno?")) {
+    return;
+  }
+
+  const r = await db
+    .from("shifts")
     .delete()
     .eq("id", id);
 
-  if (error) {
-    alert(error.message);
+  if (r.error) {
+    alert(r.error.message);
     return;
   }
 
-  newsPage();
+  render("cuadrantes");
 }
 
 /* =========================
    FLOTA
 ========================= */
 
-async function fleetPage() {
-  const content = document.getElementById("content");
+async function flota() {
 
-  const { data, error } = await db
-    .from("fleet")
+  const r = await db
+    .from("inventory")
     .select("*")
-    .order("aircraft");
+    .order("name");
 
-  if (error) {
-    content.innerHTML = errorBox(error);
-    return;
-  }
+  const aircraft = r.data || [];
 
   content.innerHTML = `
-    <div class="section-head">
+    <div class="row">
+
       <div>
-        <span class="eyebrow">OPERACIONES</span>
-        <h2>Flota</h2>
-        <p>Estado actual de los aviones.</p>
-      </div>
-
-      ${
-        isAdmin
-          ? `<button class="primary" onclick="newAircraft()">
-              + Añadir avión
-             </button>`
-          : ""
-      }
-    </div>
-
-    <div class="fleet-grid">
-
-      ${
-        data?.length
-          ? data.map(fleetCard).join("")
-          : `<div class="empty">No hay aviones registrados.</div>`
-      }
-
-    </div>
-  `;
-}
-
-function fleetCard(item) {
-  const status = String(item.status || "").toLowerCase();
-
-  let statusClass = "neutral";
-
-  if (
-    status.includes("dispon") ||
-    status.includes("operativo")
-  ) {
-    statusClass = "good";
-  }
-
-  if (
-    status.includes("aver") ||
-    status.includes("mantenimiento") ||
-    status.includes("fuera")
-  ) {
-    statusClass = "bad";
-  }
-
-  return `
-    <article class="aircraft-card">
-
-      <div class="aircraft-icon">✈</div>
-
-      <div class="aircraft-main">
-        <h3>${esc(item.aircraft)}</h3>
-
-        <span class="status ${statusClass}">
-          ${esc(item.status || "Sin estado")}
-        </span>
-
-        <p>
-          ${esc(item.notes || "Sin notas.")}
+        <h3>Flota</h3>
+        <p class="muted">
+          Estado y observaciones de las aeronaves
         </p>
       </div>
 
-      ${
-        isAdmin
-          ? `<button
-              class="secondary"
-              onclick="editAircraft('${item.id}')">
-              Editar
-             </button>`
-          : ""
-      }
+      ${admin ? `
+        <button class="btn" onclick="newAircraft()">
+          + Añadir aeronave
+        </button>
+      ` : ""}
 
-    </article>
+    </div>
+
+    <div class="grid">
+
+      ${aircraft.map(x => `
+
+        <div class="card">
+
+          <div class="row">
+
+            <h3>
+              ✈ ${esc(x.name)}
+            </h3>
+
+            <span class="tag">
+              ${esc(x.status || "Sin estado")}
+            </span>
+
+          </div>
+
+          ${x.reference ? `
+            <p>
+              <b>Matrícula / referencia:</b>
+              ${esc(x.reference)}
+            </p>
+          ` : ""}
+
+          ${x.location ? `
+            <p>
+              <b>Ubicación:</b>
+              ${esc(x.location)}
+            </p>
+          ` : ""}
+
+          ${x.notes ? `
+            <p>
+              <b>Notas:</b><br>
+              ${esc(x.notes)}
+            </p>
+          ` : ""}
+
+          ${admin ? `
+            <button
+              class="smallbtn"
+              onclick="editAircraft('${x.id}')">
+              Editar
+            </button>
+
+            <button
+              class="smallbtn danger"
+              onclick="deleteAircraft('${x.id}')">
+              Eliminar
+            </button>
+          ` : ""}
+
+        </div>
+
+      `).join("")}
+
+    </div>
   `;
 }
 
+/* =========================
+   AERONAVES
+========================= */
+
 async function newAircraft() {
-  const aircraft = prompt("Identificación del avión:");
-  if (!aircraft) return;
 
-  const status = prompt("Estado del avión:");
-  if (!status) return;
+  const name =
+    prompt("Nombre / modelo de aeronave");
 
-  const notes = prompt("Notas:") || "";
+  if (!name) return;
 
-  const { error } = await db.from("fleet").insert({
-    aircraft,
-    status,
-    notes
-  });
+  const reference =
+    prompt("Matrícula / referencia", "") || "";
 
-  if (error) {
-    alert(error.message);
+  const status =
+    prompt(
+      "Estado",
+      "Operativo"
+    ) || "Operativo";
+
+  const location =
+    prompt("Ubicación", "") || "";
+
+  const notes =
+    prompt("Notas", "") || "";
+
+  const r = await db
+    .from("inventory")
+    .insert({
+      name,
+      reference,
+      status,
+      location,
+      notes,
+      quantity: 1
+    });
+
+  if (r.error) {
+    alert(r.error.message);
     return;
   }
 
-  fleetPage();
+  render("flota");
 }
 
 async function editAircraft(id) {
-  const { data, error } = await db
-    .from("fleet")
+
+  const r = await db
+    .from("inventory")
     .select("*")
     .eq("id", id)
     .single();
 
-  if (error) {
-    alert(error.message);
+  if (r.error) {
+    alert(r.error.message);
     return;
   }
 
+  const x = r.data;
+
+  const name =
+    prompt("Nombre / modelo", x.name || "");
+
+  if (!name) return;
+
+  const reference =
+    prompt(
+      "Matrícula / referencia",
+      x.reference || ""
+    ) || "";
+
   const status =
-    prompt("Estado:", data.status || "") ??
-    data.status;
+    prompt(
+      "Estado",
+      x.status || "Operativo"
+    ) || "Operativo";
+
+  const location =
+    prompt(
+      "Ubicación",
+      x.location || ""
+    ) || "";
 
   const notes =
-    prompt("Notas:", data.notes || "") ??
-    data.notes;
+    prompt(
+      "Notas",
+      x.notes || ""
+    ) || "";
 
-  const { error: updateError } = await db
-    .from("fleet")
+  const u = await db
+    .from("inventory")
     .update({
+      name,
+      reference,
       status,
+      location,
       notes
     })
     .eq("id", id);
 
-  if (updateError) {
-    alert(updateError.message);
+  if (u.error) {
+    alert(u.error.message);
     return;
   }
 
-  fleetPage();
+  render("flota");
+}
+
+async function deleteAircraft(id) {
+
+  if (!confirm("¿Eliminar esta aeronave?")) {
+    return;
+  }
+
+  const r = await db
+    .from("inventory")
+    .delete()
+    .eq("id", id);
+
+  if (r.error) {
+    alert(r.error.message);
+    return;
+  }
+
+  render("flota");
 }
 
 /* =========================
-   EMPLEADOS
+   NOVEDADES
 ========================= */
 
-async function employeesPage() {
-  const content = document.getElementById("content");
+async function novedades() {
+
+  const r = await db
+    .from("updates")
+    .select("*")
+    .order("created_at", {
+      ascending: false
+    });
+
+  if (r.error) {
+    content.innerHTML = `
+      <div class="card">
+        <h3>Error cargando novedades</h3>
+        <p>${esc(r.error.message)}</p>
+      </div>
+    `;
+    return;
+  }
+
+  const updates = r.data || [];
 
   content.innerHTML = `
-    <div class="section-head">
-      <div>
-        <span class="eyebrow">EQUIPO</span>
-        <h2>Empleados</h2>
-        <p>Información del personal.</p>
-      </div>
-    </div>
-
-    <div class="employee-grid">
-
-      ${employees.map(employeeCard).join("")}
-
-    </div>
-  `;
-}
-
-function employeeCard(employee) {
-  return `
-    <article class="employee-card">
-
-      <div class="avatar">
-        ${esc(
-          String(
-            employee.full_name ||
-              employee.name ||
-              "E"
-          ).charAt(0).toUpperCase()
-        )}
-      </div>
+    <div class="row">
 
       <div>
-        <h3>
-          ${esc(
-            employee.full_name ||
-              employee.name ||
-              "Empleado"
-          )}
-        </h3>
+        <h3>Novedades</h3>
+        <p class="muted">
+          Todos los empleados pueden leer,
+          añadir, editar y eliminar novedades.
+        </p>
+      </div>
+
+      <button class="btn" onclick="newUpdate()">
+        + Nueva novedad
+      </button>
+
+    </div>
+
+    ${updates.length === 0 ? `
+      <div class="card">
+        <h3>No hay novedades todavía</h3>
+        <p class="muted">
+          Puedes crear la primera.
+        </p>
+      </div>
+    ` : ""}
+
+    ${updates.map(x => `
+      <div class="card" style="margin:12px 0">
+
+        <div class="row">
+
+          <div>
+            <h3>${esc(x.title)}</h3>
+
+            <span class="muted">
+              ${x.created_at
+                ? new Date(x.created_at)
+                    .toLocaleDateString("es-ES")
+                : ""}
+            </span>
+          </div>
+
+        </div>
 
         <p>
-          ${esc(
-            employee.phone ||
-              employee.telefono ||
-              "Teléfono no disponible"
-          )}
+          ${esc(x.body || "")}
         </p>
 
-        <span>
-          ${esc(
-            employee.shift ||
-              employee.turno ||
-              employee.role ||
-              "Empleado"
-          )}
-        </span>
-      </div>
+        <div>
 
-    </article>
+          <button
+            class="smallbtn"
+            onclick="editUpdate('${x.id}')">
+            Editar
+          </button>
+
+          <button
+            class="smallbtn danger"
+            onclick="deleteUpdate('${x.id}')">
+            Eliminar
+          </button>
+
+        </div>
+
+      </div>
+    `).join("")}
   `;
 }
 
-/* =========================
-   UTILIDADES
-========================= */
+async function newUpdate() {
 
-function formatDate(value) {
-  if (!value) return "";
+  const title =
+    prompt("Título de la novedad");
 
-  return new Date(value).toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  });
+  if (!title) return;
+
+  const body =
+    prompt("Contenido") || "";
+
+  const r = await db
+    .from("updates")
+    .insert({
+      title,
+      body
+    });
+
+  if (r.error) {
+    alert(r.error.message);
+    return;
+  }
+
+  render("novedades");
 }
 
-function errorBox(error) {
-  return `
-    <div class="error">
-      <strong>No se pudo cargar esta sección.</strong>
-      <br>
-      <small>${esc(error?.message || "Error desconocido")}</small>
+async function editUpdate(id) {
+
+  const r = await db
+    .from("updates")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (r.error) {
+    alert(r.error.message);
+    return;
+  }
+
+  const title =
+    prompt(
+      "Título",
+      r.data.title || ""
+    );
+
+  if (!title) return;
+
+  const body =
+    prompt(
+      "Contenido",
+      r.data.body || ""
+    ) || "";
+
+  const u = await db
+    .from("updates")
+    .update({
+      title,
+      body
+    })
+    .eq("id", id);
+
+  if (u.error) {
+    alert(u.error.message);
+    return;
+  }
+
+  render("novedades");
+}
+
+async function deleteUpdate(id) {
+
+  if (!confirm(
+    "¿Quieres eliminar esta novedad?"
+  )) {
+    return;
+  }
+
+  const r = await db
+    .from("updates")
+    .delete()
+    .eq("id", id);
+
+  if (r.error) {
+    alert(r.error.message);
+    return;
+  }
+
+  render("novedades");
+}
+
+/* =========================
+   PERFIL
+========================= */
+
+async function perfil() {
+
+  content.innerHTML = `
+    <div class="card">
+
+      <h3>Mi perfil</h3>
+
+      <p>
+        <b>Nombre:</b>
+        ${esc(current.full_name)}
+      </p>
+
+      <p>
+        <b>Teléfono:</b>
+        ${esc(current.phone || "No indicado")}
+      </p>
+
+      <p>
+        <b>Rol:</b>
+        ${esc(current.role || "Empleado")}
+      </p>
+
+      <button
+        class="btn"
+        onclick="editProfile()">
+        Editar datos
+      </button>
+
+    </div>
+  `;
+}
+
+async function editProfile() {
+
+  const full_name =
+    prompt(
+      "Nombre",
+      current.full_name
+    );
+
+  if (!full_name) return;
+
+  const phone =
+    prompt(
+      "Teléfono",
+      current.phone || ""
+    ) || "";
+
+  const r = await db
+    .from("profiles")
+    .update({
+      full_name,
+      phone
+    })
+    .eq("id", current.id);
+
+  if (r.error) {
+    alert(r.error.message);
+    return;
+  }
+
+  await load();
+
+  current =
+    employees.find(
+      e => e.id === current.id
+    );
+
+  render("perfil");
+}
+
+/* =========================
+   ADMINISTRACIÓN
+========================= */
+
+async function adminPage() {
+
+  await load();
+
+  content.innerHTML = `
+    <div class="grid">
+
+      <div class="card stat">
+        <span class="muted">
+          Empleados
+        </span>
+        <b>${employees.length}</b>
+      </div>
+
+      <div class="card stat">
+        <span class="muted">
+          Estado
+        </span>
+        <b>OK</b>
+      </div>
+
+    </div>
+
+    <div class="card">
+
+      <h3>Equipo</h3>
+
+      <table class="table">
+
+        <tr>
+          <th>Nombre</th>
+          <th>Teléfono</th>
+          <th>Rol</th>
+        </tr>
+
+        ${employees.map(e => `
+          <tr>
+
+            <td>
+              ${esc(e.full_name)}
+            </td>
+
+            <td>
+              ${esc(e.phone || "")}
+            </td>
+
+            <td>
+              ${esc(e.role || "Empleado")}
+            </td>
+
+          </tr>
+        `).join("")}
+
+      </table>
+
     </div>
   `;
 }
 
 /* =========================
-   ESTILOS
+   ADMIN LOGIN
 ========================= */
 
-const style = document.createElement("style");
-
-style.textContent = `
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-
-  background: #f5f7fa;
-  color: #172033;
-}
-
-button,
-select,
-input,
-textarea {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-.app-shell {
-  min-height: 100vh;
-  display: flex;
-}
-
-.sidebar {
-  width: 260px;
-  background: #101828;
-  color: white;
-  padding: 22px 16px;
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  inset: 0 auto 0 0;
-  z-index: 20;
-}
-
-.brand {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 8px;
-  margin-bottom: 30px;
-}
-
-.brand strong {
-  display: block;
-  font-size: 14px;
-}
-
-.brand small {
-  display: block;
-  color: #98a2b3;
-  margin-top: 3px;
-}
-
-.logo-mark {
-  width: 62px;
-  height: 62px;
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  background: #ffffff;
-  color: #101828;
-  font-weight: 900;
-  font-size: 22px;
-  margin: 0 auto 18px;
-}
-
-.logo-mark.small {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  margin: 0;
-  font-size: 15px;
-}
-
-.sidebar nav {
-  display: grid;
-  gap: 6px;
-}
-
-.sidebar nav button,
-.logout {
-  border: 0;
-  background: transparent;
-  color: #d0d5dd;
-  text-align: left;
-  padding: 13px 14px;
-  border-radius: 10px;
-}
-
-.sidebar nav button:hover,
-.sidebar nav button.active {
-  background: #1d2939;
-  color: white;
-}
-
-.sidebar-bottom {
-  margin-top: auto;
-}
-
-.user-mini {
-  border-top: 1px solid #344054;
-  padding: 18px 8px 10px;
-}
-
-.user-mini strong,
-.user-mini span {
-  display: block;
-}
-
-.user-mini span {
-  color: #98a2b3;
-  font-size: 13px;
-  margin-top: 3px;
-}
-
-.logout {
-  width: 100%;
-}
-
-.main {
-  width: 100%;
-  margin-left: 260px;
-}
-
-.topbar {
-  height: 82px;
-  background: white;
-  border-bottom: 1px solid #eaecf0;
-  padding: 16px 34px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.topbar h1 {
-  margin: 0;
-  font-size: 22px;
-}
-
-.topbar p {
-  margin: 4px 0 0;
-  color: #667085;
-  font-size: 13px;
-}
-
-.menu-btn {
-  display: none;
-  border: 0;
-  background: transparent;
-  font-size: 24px;
-}
-
-.content {
-  padding: 34px;
-  max-width: 1400px;
-  margin: auto;
-}
-
-.welcome {
-  background: white;
-  border-radius: 20px;
-  padding: 30px;
-  border: 1px solid #eaecf0;
-}
-
-.welcome h2 {
-  margin: 7px 0;
-  font-size: 30px;
-}
-
-.welcome p {
-  color: #667085;
-}
-
-.eyebrow {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .12em;
-  color: #667085;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin: 20px 0 35px;
-}
-
-.stat-card {
-  background: white;
-  border: 1px solid #eaecf0;
-  border-radius: 16px;
-  padding: 22px;
-}
-
-.stat-card span {
-  display: block;
-  color: #667085;
-  font-size: 13px;
-}
-
-.stat-card strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 30px;
-}
-
-.section-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  align-items: center;
-  margin-bottom: 22px;
-}
-
-.section-head h2 {
-  margin: 4px 0;
-}
-
-.section-head p {
-  margin: 0;
-  color: #667085;
-}
-
-.primary,
-.secondary,
-.danger-btn,
-.icon-btn {
-  border: 0;
-  border-radius: 9px;
-  padding: 10px 15px;
-}
-
-.primary {
-  background: #101828;
-  color: white;
-}
-
-.secondary,
-.icon-btn {
-  background: #eef2f6;
-  color: #344054;
-}
-
-.danger-btn {
-  background: #fee4e2;
-  color: #b42318;
-}
-
-.cards,
-.news-list,
-.fleet-grid,
-.employee-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.cards {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.news-card,
-.aircraft-card,
-.employee-card {
-  background: white;
-  border: 1px solid #eaecf0;
-  border-radius: 16px;
-  padding: 20px;
-}
-
-.news-card h3 {
-  margin: 9px 0;
-}
-
-.news-card p {
-  color: #475467;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-
-.news-card.full {
-  padding: 24px;
-}
-
-.news-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.date {
-  color: #667085;
-  font-size: 12px;
-}
-
-.calendar {
-  display: grid;
-  gap: 16px;
-}
-
-.calendar-day {
-  background: white;
-  border: 1px solid #eaecf0;
-  border-radius: 18px;
-  overflow: hidden;
-}
-
-.calendar-date {
-  background: #f9fafb;
-  padding: 16px 20px;
-  text-transform: capitalize;
-  border-bottom: 1px solid #eaecf0;
-}
-
-.shift-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-.shift {
-  padding: 22px;
-  min-height: 130px;
-}
-
-.shift + .shift {
-  border-left: 1px solid #eaecf0;
-}
-
-.shift span {
-  display: block;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .1em;
-  color: #667085;
-  margin-bottom: 12px;
-}
-
-.shift strong {
-  display: block;
-  font-size: 18px;
-}
-
-.shift small {
-  display: block;
-  color: #667085;
-  margin: 7px 0 14px;
-}
-
-.shift button {
-  border: 0;
-  background: transparent;
-  text-decoration: underline;
-  color: #344054;
-}
-
-.calendar-note {
-  padding: 14px 20px;
-  background: #fffaeb;
-  border-top: 1px solid #eaecf0;
-  color: #7a2e0e;
-}
-
-.fleet-grid {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.aircraft-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.aircraft-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: #f2f4f7;
-  display: grid;
-  place-items: center;
-  font-size: 22px;
-}
-
-.aircraft-main {
-  flex: 1;
-}
-
-.aircraft-main h3 {
-  margin: 0 0 9px;
-}
-
-.aircraft-main p {
-  color: #667085;
-  line-height: 1.5;
-}
-
-.status {
-  display: inline-block;
-  border-radius: 999px;
-  padding: 5px 9px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.status.good {
-  background: #dcfae6;
-  color: #067647;
-}
-
-.status.bad {
-  background: #fee4e2;
-  color: #b42318;
-}
-
-.status.neutral {
-  background: #f2f4f7;
-  color: #344054;
-}
-
-.employee-grid {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.employee-card {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-}
-
-.employee-card h3 {
-  margin: 0 0 5px;
-}
-
-.employee-card p {
-  margin: 0 0 6px;
-  color: #667085;
-}
-
-.employee-card span {
-  color: #667085;
-  font-size: 12px;
-}
-
-.avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #101828;
-  color: white;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-}
-
-.login {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: #f5f7fa;
-  padding: 20px;
-}
-
-.login-card {
-  width: min(420px, 100%);
-  background: white;
-  padding: 28px;
-  border: 1px solid #eaecf0;
-  border-radius: 18px;
-  box-shadow: 0 12px 40px rgba(16, 24, 40, .08);
-}
-
-.login-card h2 {
-  margin-top: 0;
-}
-
-.login-card label {
-  display: block;
-  margin: 18px 0 7px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.login-card select {
-  width: 100%;
-  padding: 13px;
-  border: 1px solid #d0d5dd;
-  border-radius: 9px;
-  background: white;
-}
-
-.login-card .primary {
-  width: 100%;
-  margin-top: 15px;
-  padding: 13px;
-}
-
-.muted {
-  color: #667085;
-}
-
-.empty,
-.error,
-.loading {
-  background: white;
-  border: 1px solid #eaecf0;
-  border-radius: 16px;
-  padding: 28px;
-}
-
-.error {
-  color: #b42318;
-}
-
-@media (max-width: 900px) {
-
-  .sidebar {
-    transform: translateX(-100%);
-    transition: transform .2s ease;
-  }
-
-  .sidebar.open {
-    transform: translateX(0);
-  }
-
-  .main {
-    margin-left: 0;
-  }
-
-  .menu-btn {
-    display: block;
-  }
-
-  .cards,
-  .fleet-grid,
-  .employee-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .content {
-    padding: 22px;
-  }
-}
-
-@media (max-width: 600px) {
-
-  .topbar {
-    padding: 14px 18px;
-  }
-
-  .content {
-    padding: 16px;
-  }
-
-  .stats,
-  .cards,
-  .fleet-grid,
-  .employee-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .section-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .shift-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .shift + .shift {
-    border-left: 0;
-    border-top: 1px solid #eaecf0;
-  }
-
-  .welcome h2 {
-    font-size: 24px;
-  }
-
-  .news-top {
-    flex-direction: column;
-  }
-
-  .aircraft-card {
-    flex-wrap: wrap;
-  }
-}
-`;
-
-document.head.appendChild(style);
-
-/* Iniciar aplicación */
-loadEmployees();
+function pin() {
+
+  S.insertAdjacentHTML(
+    "beforeend",
+    `
+      <div class="modal" id="modal">
+
+        <div class="card">
+
+          <button
+            class="close"
+            onclick="modal.remove()">
+            ×
+          </button>
+
+          <h3>Administración</h3>
+
+          <p class="muted">
+            Introduce el PIN de administrador.
+          </p>
+
+          <input
+            id="p"
+            class="pin"
+            type="password"
+            maxlength="6">
+
+          <br><br>
+
+          <button
+            class="btn"
+            onclick="
+              if(p.value==='1234'){
+                admin=true;
+                modal.remove();
+                render('admin');
+              }else{
+                alert('PIN incorrecto');
+              }
+            ">
+            Entrar
+          </button>
+
+        </div>
+
+      </div>
+    `
+  );
+}
+
+choose();
