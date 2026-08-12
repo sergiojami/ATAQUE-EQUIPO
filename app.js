@@ -1,7 +1,4 @@
-const db = supabase.createClient(
-  AVIONICA_SUPABASE_URL,
-  AVIONICA_SUPABASE_KEY
-);
+const db = supabase.createClient(AVIONICA_SUPABASE_URL, AVIONICA_SUPABASE_KEY);
 
 let employees = [];
 let current = null;
@@ -9,1135 +6,139 @@ let admin = false;
 let calendarDate = new Date();
 
 const S = document.getElementById("screen");
+const LOGO = () => getComputedStyle(document.documentElement).getPropertyValue("--logo").trim().replace(/^url\(["']?/, "").replace(/["']?\)$/, "");
+window.ATAQUE_LOGO = LOGO();
 
-const esc = x =>
-  String(x ?? "").replace(/[&<>"']/g, m => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;"
-  }[m]));
+const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (m) => ({
+  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+}[m]));
 
-const ini = n =>
-  String(n || "")
-    .split(" ")
-    .map(x => x[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+const ini = (name) => String(name || "").trim().split(/\s+/).map(x => x[0] || "").slice(0,2).join("").toUpperCase();
+const monthLabel = (date) => new Intl.DateTimeFormat("es-ES", {month:"long",year:"numeric"}).format(date);
+const dateKey = (year, month, day) => `${year}-${String(month + 1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+function toast(message, type="ok") { const node=document.getElementById("toast"); if(!node)return; node.innerHTML=`<div class="toast ${type}">${esc(message)}</div>`; setTimeout(()=>{node.innerHTML=""},2600); }
+function isAdmin(){ return admin === true; }
 
-const nav = [
-  ["inicio", "⌂ Inicio"],
-  ["cuadrantes", "▦ Cuadrantes"],
-  ["flota", "✈ Flota"],
-  ["novedades", "✦ Novedades"],
-  ["perfil", "◯ Mi perfil"]
-];
-
-async function load() {
-  const r = await db
-    .from("profiles")
-    .select("id,full_name,phone,role")
-    .order("full_name");
-
-  if (r.error) {
-    S.innerHTML = `
-      <div class="login">
-        <div class="pick">
-          <div class="head">
-            <div class="logo">A</div>
-            <h1>ATAQUE-EQUIPO</h1>
-            <p class="muted">${esc(r.error.message)}</p>
-          </div>
-        </div>
-      </div>`;
-    return false;
-  }
-
-  employees = r.data || [];
-  return true;
+async function loadEmployees(){
+  const r=await db.from("empleados").select("id,nombre,telefono,turnos,rol,created_at").neq("rol","admin").order("nombre");
+  if(r.error) throw r.error;
+  employees=r.data||[];
+  return employees;
 }
 
-async function choose() {
-  if (!await load()) return;
-
-  S.innerHTML = `
-    <div class="login">
-      <div class="pick">
-        <div class="head">
-          <div class="logo">A</div>
-          <h1>ATAQUE-EQUIPO</h1>
-          <p class="muted">Selecciona tu nombre para entrar</p>
-        </div>
-
-        <div class="people">
-          ${employees.map(e => `
-            <button class="person" onclick="enter('${e.id}')">
-              <div class="avatar">${ini(e.full_name)}</div>
-              <b>${esc(e.full_name)}</b>
-              <div class="muted">${esc(e.phone || "")}</div>
-            </button>
-          `).join("")}
-        </div>
-
-        <div class="admin">
-          <button class="btn" onclick="pin()">⚙ Administración</button>
-        </div>
-      </div>
+async function choose(){
+  admin=false; current=null;
+  try { await loadEmployees(); await ensureSpecialRows(); }
+  catch(e){
+    S.innerHTML=`<div class="login-error"><div class="login-card"><div class="logo-circle">AE</div><h1>ATAQUE EQUIPO</h1><p>No se ha podido conectar con la base de datos.</p><small>${esc(e.message)}</small><button class="btn primary" onclick="choose()">Reintentar</button></div></div>`;
+    return;
+  }
+  S.innerHTML=`
+    <div class="login-screen">
+      <div class="login-watermark"></div>
+      <section class="login-intro">
+        <img class="login-logo" src="${window.ATAQUE_LOGO||""}" alt="ATAQUE EQUIPO">
+        <div class="eyebrow">PORTAL DE GESTIÓN</div><h1>ATAQUE EQUIPO</h1>
+        <p>Cuadrantes, especiales, novedades y gestión del equipo en un único lugar.</p>
+      </section>
+      <section class="login-card">
+        <div class="login-card-head"><span class="eyebrow">ACCESO</span><h2>Selecciona tu nombre</h2><p>Accede al portal del equipo.</p></div>
+        <select id="employeeSelect" class="field"><option value="">Seleccionar empleado...</option>${employees.map(e=>`<option value="${e.id}">${esc(e.nombre)}</option>`).join("")}</select>
+        <button class="btn primary wide" onclick="enterSelected()">Entrar</button>
+        <div class="divider"><span>o</span></div>
+        <button class="btn secondary wide" onclick="showAdminLogin()">Acceso administrador</button>
+      </section>
     </div>`;
 }
 
-async function enter(id) {
-  current = employees.find(e => e.id === id);
-  admin = false;
-  render("inicio");
+function enterSelected(){ const id=document.getElementById("employeeSelect")?.value; if(!id){toast("Selecciona un empleado","warn");return;} current=employees.find(e=>e.id===id)||null; admin=false; render("inicio"); }
+function showAdminLogin(){
+  openModal(`<div class="modal-head"><div><span class="eyebrow">CONTROL DE ACCESO</span><h3>Administración</h3></div><button class="icon-btn" onclick="closeModal()">×</button></div><p class="muted">Introduce el PIN de administrador.</p><input id="adminPin" class="field" type="password" inputmode="numeric" maxlength="6" placeholder="PIN"><div class="modal-actions"><button class="btn secondary" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="checkAdminPin()">Entrar</button></div>`);
+  setTimeout(()=>document.getElementById("adminPin")?.focus(),50);
 }
+function checkAdminPin(){ const pin=document.getElementById("adminPin")?.value||""; if(pin!=="1234"){toast("PIN incorrecto","error");return;} admin=true; current={id:"admin",nombre:"Administrador",telefono:"",rol:"admin"}; closeModal(); render("inicio"); }
 
-async function render(page) {
-  const titles = {
-    inicio: "Inicio",
-    cuadrantes: "Cuadrantes",
-    flota: "Flota",
-    novedades: "Novedades",
-    perfil: "Mi perfil",
-    admin: "Administración"
-  };
+function navItem(page,icon,label,active){ return `<button class="side-link ${page===active?"active":""}" onclick="render('${page}')"><span class="side-icon">${icon}</span><span>${label}</span></button>`; }
+function toggleSidebar(){ document.getElementById("sidebar")?.classList.toggle("open"); }
 
-  S.innerHTML = `
-    <aside class="side" id="side">
-
-      <div class="brand">
-        <div class="logo">A</div>
-        <div>
-          <b>ATAQUE-EQUIPO</b>
-          <small>Portal del equipo</small>
-        </div>
-      </div>
-
-      <div class="nav">
-        ${nav.map(n => `
-          <button
-            class="${page === n[0] ? "active" : ""}"
-            onclick="render('${n[0]}')">
-            ${n[1]}
-          </button>
-        `).join("")}
-
-        ${admin ? `
-          <button
-            class="${page === "admin" ? "active" : ""}"
-            onclick="render('admin')">
-            ⚙ Administración
-          </button>
-        ` : ""}
-      </div>
-
-      <div class="sidefoot">
-        ATAQUE-EQUIPO
-      </div>
+function render(page="inicio"){
+  const titles={inicio:"Inicio",cuadrantes:"Cuadrante de Turnos",especiales:"Especiales",empleados:"Gestión de Empleados",novedades:"Novedades"};
+  S.innerHTML=`<div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand"><img src="${window.ATAQUE_LOGO||""}" alt="ATAQUE EQUIPO"><div><b>ATAQUE EQUIPO</b><span>Compromiso · Trabajo · Seguridad</span></div></div>
+      <nav class="side-nav">${navItem("inicio","⌂","Inicio",page)}${navItem("cuadrantes","▦","Cuadrante de Turnos",page)}${navItem("especiales","★","Especiales",page)}${admin?navItem("empleados","♟","Gestión de Empleados",page):""}${navItem("novedades","✦","Novedades",page)}</nav>
+      <div class="sidebar-bottom"><div class="sidebar-help">Solo el administrador puede modificar el cuadrante y gestionar empleados.</div><button class="side-link" onclick="showHelp()"><span class="side-icon">?</span><span>Ayuda</span></button><button class="side-link logout-side" onclick="choose()"><span class="side-icon">↪</span><span>Cerrar sesión</span></button><div class="sidebar-mark"><img src="${window.ATAQUE_LOGO||""}" alt=""></div><div class="sidebar-footer">ATAQUE EQUIPO</div></div>
     </aside>
-
-    <main class="main">
-
-      <header class="top">
-
-        <div>
-          <button
-            class="menu"
-            onclick="side.classList.toggle('open')">
-            ☰
-          </button>
-
-          <h2>${titles[page] || page}</h2>
-        </div>
-
-        <div class="profile">
-          <div class="avatar">
-            ${admin ? "AD" : ini(current?.full_name)}
-          </div>
-
-          <div>
-            <b>
-              ${admin ? "Administrador" : esc(current?.full_name)}
-            </b>
-
-            <div class="muted">
-              ${admin ? "Control general" : "Empleado"}
-            </div>
-          </div>
-
-          <button class="logout" onclick="choose()">
-            Salir
-          </button>
-        </div>
-
-      </header>
-
-      <div class="content" id="content"></div>
-
-    </main>
-  `;
-
-  const pages = {
-    inicio,
-    cuadrantes,
-    flota,
-    novedades,
-    perfil,
-    admin: adminPage
-  };
-
-  if (pages[page]) {
-    await pages[page]();
-  }
+    <main class="main-area">
+      <header class="topbar"><div class="topbar-left"><button class="mobile-menu" onclick="toggleSidebar()">☰</button><div><span class="eyebrow">ATAQUE EQUIPO</span><h1>${titles[page]||"Portal"}</h1></div></div><div class="topbar-right"><div class="user-chip"><div class="avatar">${admin?"AD":ini(current?.nombre)}</div><div><b>${admin?"Administrador":esc(current?.nombre||"")}</b><span>${admin?"Control total":"Empleado"}</span></div></div><button class="icon-btn" title="Cerrar sesión" onclick="choose()">↪</button></div></header>
+      <div class="page-content" id="content"></div>
+    </main></div>`;
+  const pages={inicio,cuadrantes,especiales,empleados:empleadosPage,novedades}; if(pages[page]) pages[page]();
 }
 
-/* =========================
-   INICIO
-========================= */
-
-async function inicio() {
-  const [shifts, fleet, updates] = await Promise.all([
-    db.from("shifts").select("*"),
-    db.from("inventory").select("*"),
-    db.from("updates").select("*")
-  ]);
-
-  content.innerHTML = `
-    <div class="hero">
-      <h2>
-        Hola, ${esc(
-          (admin ? "Administrador" : current?.full_name || "")
-            .split(" ")[0]
-        )} 👋
-      </h2>
-
-      <div>
-        Bienvenido al portal de ATAQUE-EQUIPO.
-      </div>
-    </div>
-
-    <div class="grid">
-
-      <div class="card stat">
-        <span class="muted">Turnos</span>
-        <b>${shifts.data?.length || 0}</b>
-      </div>
-
-      <div class="card stat">
-        <span class="muted">Aeronaves</span>
-        <b>${fleet.data?.length || 0}</b>
-      </div>
-
-      <div class="card stat">
-        <span class="muted">Novedades</span>
-        <b>${updates.data?.length || 0}</b>
-      </div>
-
-      <div class="card stat">
-        <span class="muted">Empleados</span>
-        <b>${employees.length}</b>
-      </div>
-
-    </div>
-  `;
+async function inicio(){
+  const [shifts,special,news]=await Promise.all([db.from("turnos_cuadrante").select("id"),db.from("especiales").select("id"),db.from("novedades").select("id")]);
+  content.innerHTML=`<section class="hero-card"><div><span class="eyebrow">PORTAL OPERATIVO</span><h2>Hola, ${esc((admin?"Administrador":current?.nombre||"").split(" ")[0])} 👋</h2><p>Gestiona de forma clara y profesional los turnos del equipo.</p></div><img src="${window.ATAQUE_LOGO||""}" alt=""></section>
+  <div class="stats-grid"><div class="stat-card"><span>Asignaciones de turno</span><b>${shifts.data?.length||0}</b><small>Registradas en el cuadrante</small></div><div class="stat-card"><span>Empleados</span><b>${employees.length}</b><small>Equipo activo</small></div><div class="stat-card"><span>Registros especiales</span><b>${special.data?.length||0}</b><small>Uno por empleado</small></div><div class="stat-card"><span>Novedades</span><b>${news.data?.length||0}</b><small>Comunicaciones del equipo</small></div></div>
+  <div class="home-grid"><div class="panel"><div class="panel-head"><div><span class="eyebrow">ACCESO RÁPIDO</span><h3>Gestión diaria</h3></div></div><div class="quick-grid"><button onclick="render('cuadrantes')"><strong>▦ Cuadrante</strong><span>Consulta ${admin?"y edita":""} los turnos M / T.</span></button><button onclick="render('especiales')"><strong>★ Especiales</strong><span>Consulta los contadores C · V · CS · AP · B.</span></button><button onclick="render('novedades')"><strong>✦ Novedades</strong><span>Publica y consulta comunicaciones.</span></button>${admin?`<button onclick="render('empleados')"><strong>♟ Empleados</strong><span>Añade, edita o elimina personal.</span></button>`:""}</div></div><div class="panel notice-panel"><div class="panel-head"><div><span class="eyebrow">PERMISOS</span><h3>Control de acceso</h3></div></div><p><b>Cuadrante:</b> ${admin?"editable por ti como administrador.":"solo lectura para empleados."}</p><p><b>Novedades:</b> todos los empleados pueden crear, editar y eliminar.</p><p><b>Gestión de empleados:</b> disponible únicamente para el administrador.</p></div></div>`;
 }
 
-/* =========================
-   CUADRANTES
-========================= */
-
-async function cuadrantes() {
-
-  const year = calendarDate.getFullYear();
-  const month = calendarDate.getMonth();
-
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-
-  const start =
-    firstDay.toISOString().slice(0, 10);
-
-  const end =
-    lastDay.toISOString().slice(0, 10);
-
-  let query = db
-    .from("shifts")
-    .select("*,profiles(full_name)")
-    .gte("date", start)
-    .lte("date", end)
-    .order("date");
-
-  if (!admin && current) {
-    query = query.eq("employee_id", current.id);
-  }
-
-  const r = await query;
-
-  const shifts = r.data || [];
-
-  const monthName = new Intl.DateTimeFormat(
-    "es-ES",
-    { month: "long", year: "numeric" }
-  ).format(calendarDate);
-
-  const days = [];
-
-  const startWeek =
-    firstDay.getDay() === 0
-      ? 6
-      : firstDay.getDay() - 1;
-
-  for (let i = 0; i < startWeek; i++) {
-    days.push(`<div class="calendar-empty"></div>`);
-  }
-
-  for (let day = 1; day <= lastDay.getDate(); day++) {
-
-    const date =
-      `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-
-    const dayShifts =
-      shifts.filter(x => x.date === date);
-
-    days.push(`
-      <div class="calendar-day">
-
-        <div class="calendar-number">
-          ${day}
-        </div>
-
-        ${dayShifts.map(x => `
-          <div class="shift-card">
-
-            <b>
-              ${esc(
-                x.profiles?.full_name ||
-                employees.find(e => e.id === x.employee_id)?.full_name ||
-                "Empleado"
-              )}
-            </b>
-
-            <div>
-              ${esc(x.start_time || "")}
-              ${x.end_time ? " – " + esc(x.end_time) : ""}
-            </div>
-
-            ${x.service ? `
-              <small>${esc(x.service)}</small>
-            ` : ""}
-
-            ${x.notes ? `
-              <small>📝 ${esc(x.notes)}</small>
-            ` : ""}
-
-            ${admin ? `
-              <div class="shift-actions">
-                <button
-                  class="smallbtn"
-                  onclick="editShift('${x.id}')">
-                  Editar
-                </button>
-
-                <button
-                  class="smallbtn danger"
-                  onclick="deleteShift('${x.id}')">
-                  Eliminar
-                </button>
-              </div>
-            ` : ""}
-
-          </div>
-        `).join("")}
-
-        ${admin ? `
-          <button
-            class="calendar-add"
-            onclick="newShift('${date}')">
-            +
-          </button>
-        ` : ""}
-
-      </div>
-    `);
-  }
-
-  content.innerHTML = `
-    <div class="row">
-
-      <div>
-        <h3>Cuadrante de trabajo</h3>
-        <p class="muted">
-          ${monthName}
-        </p>
-      </div>
-
-      <div>
-        <button class="btn" onclick="previousMonth()">
-          ←
-        </button>
-
-        <button class="btn" onclick="todayMonth()">
-          Hoy
-        </button>
-
-        <button class="btn" onclick="nextMonth()">
-          →
-        </button>
-      </div>
-
-    </div>
-
-    <div class="calendar">
-
-      <div class="calendar-head">LUN</div>
-      <div class="calendar-head">MAR</div>
-      <div class="calendar-head">MIÉ</div>
-      <div class="calendar-head">JUE</div>
-      <div class="calendar-head">VIE</div>
-      <div class="calendar-head">SÁB</div>
-      <div class="calendar-head">DOM</div>
-
-      ${days.join("")}
-
-    </div>
-  `;
+async function cuadrantes(){
+  const year=calendarDate.getFullYear(), month=calendarDate.getMonth(), start=dateKey(year,month,1), end=dateKey(year,month,daysInMonth(year,month));
+  const r=await db.from("turnos_cuadrante").select("id,fecha,empleado_id,turno,nota").gte("fecha",start).lte("fecha",end);
+  if(r.error){content.innerHTML=`<div class="panel error-state"><h3>No se pudo cargar el cuadrante</h3><p>${esc(r.error.message)}</p></div>`;return;}
+  const shifts=r.data||[], days=Array.from({length:daysInMonth(year,month)},(_,i)=>i+1), byKey=new Set(shifts.map(x=>`${x.fecha}|${x.empleado_id}|${x.turno}`));
+  content.innerHTML=`<div class="calendar-toolbar"><div><span class="eyebrow">PLANIFICACIÓN MENSUAL</span><h3>Cuadrante de Turnos</h3><p class="muted">Marca <b>M</b> para mañana y <b>T</b> para tarde. ${admin?"Los cambios se guardan automáticamente.":"Modo consulta."}</p></div><div class="toolbar-actions"><button class="btn secondary" onclick="changeMonth(-1)">← Mes anterior</button><button class="month-badge">${esc(monthLabel(calendarDate))}</button><button class="btn secondary" onclick="changeMonth(1)">Mes siguiente →</button><button class="btn primary" onclick="window.print()">⇩ Exportar / Imprimir</button></div></div>
+  <div class="calendar-legend"><span><i class="legend-swatch morning"></i>M · Mañana</span><span><i class="legend-swatch afternoon"></i>T · Tarde</span><span class="legend-note">${admin?"Solo administrador puede modificar.":"Las casillas son de solo lectura."}</span></div>
+  <div class="calendar-wrap"><table class="shift-table"><thead><tr><th class="employee-col" rowspan="2">Empleado</th>${days.map(d=>{const dt=new Date(year,month,d),wd=new Intl.DateTimeFormat("es-ES",{weekday:"short"}).format(dt).replace(".","");return `<th colspan="2"><div class="day-head"><b>${wd.toUpperCase()}</b><span>${String(d).padStart(2,"0")} ${new Intl.DateTimeFormat("es-ES",{month:"short"}).format(dt).replace(".","")}</span></div></th>`}).join("")}</tr><tr>${days.map(()=>`<th class="subhead morning">M</th><th class="subhead afternoon">T</th>`).join("")}</tr></thead><tbody>${employees.map(e=>`<tr><th class="employee-name"><div class="employee-cell"><span class="avatar-small">${ini(e.nombre)}</span><div><strong>${esc(e.nombre)}</strong><small>${esc(e.telefono||"Sin teléfono")}</small></div></div></th>${days.map(d=>{const date=dateKey(year,month,d);return ["M","T"].map(t=>{const checked=byKey.has(`${date}|${e.id}|${t}`),cls=t==="M"?"morning":"afternoon";return `<td class="shift-cell ${cls} ${checked?"checked":""}"><label title="${checked?"Asignado":"Sin asignar"}"><input type="checkbox" ${checked?"checked":""} ${admin?"":"disabled"} onchange="toggleShift('${e.id}','${date}','${t}',this.checked)"><span>${checked?"✓":""}</span></label></td>`}).join("")}).join("")}</tr>`).join("")}</tbody></table></div><div class="table-footer"><span>${employees.length} empleados · ${days.length} días · ${days.length*2} casillas por empleado</span><span><b>M</b> Mañana · <b>T</b> Tarde</span></div>`;
 }
 
-function previousMonth() {
-  calendarDate.setMonth(calendarDate.getMonth() - 1);
-  render("cuadrantes");
+async function toggleShift(employeeId,fecha,turno,checked){
+  if(!admin)return;
+  if(checked){const r=await db.from("turnos_cuadrante").upsert({empleado_id:employeeId,fecha,turno},{onConflict:"fecha,empleado_id,turno"});if(r.error){toast(r.error.message,"error");cuadrantes();return;}}
+  else{const r=await db.from("turnos_cuadrante").delete().eq("empleado_id",employeeId).eq("fecha",fecha).eq("turno",turno);if(r.error){toast(r.error.message,"error");cuadrantes();return;}}
+  const input=document.querySelector(`input[onchange*="${fecha}"][onchange*="${turno}"]`); if(input) input.closest(".shift-cell")?.classList.toggle("checked",checked); toast(checked?`Turno ${turno} asignado`:`Turno ${turno} quitado`);
 }
+function changeMonth(delta){ calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()+delta,1); render("cuadrantes"); }
 
-function nextMonth() {
-  calendarDate.setMonth(calendarDate.getMonth() + 1);
-  render("cuadrantes");
+async function especiales(){
+  const r=await db.from("especiales").select("id,empleado_id,c,v,cs,ap,b");
+  if(r.error){content.innerHTML=`<div class="panel error-state"><h3>Error cargando Especiales</h3><p>${esc(r.error.message)}</p></div>`;return;}
+  const map=new Map((r.data||[]).map(x=>[x.empleado_id,x]));
+  content.innerHTML=`<div class="calendar-toolbar"><div><span class="eyebrow">CONTROL DE ACTIVIDADES</span><h3>Especiales</h3><p class="muted">Contador de veces registradas en <b>C · V · CS · AP · B</b>.</p></div>${admin?`<button class="btn secondary" onclick="resetSpecials()">↺ Restablecer contadores</button>`:""}</div><div class="panel specials-panel"><div class="specials-explain"><span class="special-pill">C</span> Comunicación <span class="special-pill">V</span> Vigilancia <span class="special-pill">CS</span> Cursos <span class="special-pill">AP</span> Apoyo <span class="special-pill">B</span> Baja</div><div class="table-scroll"><table class="specials-table"><thead><tr><th>Empleado</th><th>C</th><th>V</th><th>CS</th><th>AP</th><th>B</th><th>Total</th></tr></thead><tbody>${employees.map(e=>{const x=map.get(e.id)||{c:0,v:0,cs:0,ap:0,b:0},total=Number(x.c)+Number(x.v)+Number(x.cs)+Number(x.ap)+Number(x.b);return `<tr><th><div class="employee-cell"><span class="avatar-small">${ini(e.nombre)}</span><strong>${esc(e.nombre)}</strong></div></th>${specialCell(e.id,"c",x.c)}${specialCell(e.id,"v",x.v)}${specialCell(e.id,"cs",x.cs)}${specialCell(e.id,"ap",x.ap)}${specialCell(e.id,"b",x.b)}<td class="total-cell">${total}</td></tr>`}).join("")}</tbody></table></div></div>`;
 }
-
-function todayMonth() {
-  calendarDate = new Date();
-  render("cuadrantes");
+function specialCell(id,field,value){ if(!admin)return `<td><span class="count readonly">${Number(value)||0}</span></td>`; return `<td><div class="counter"><button onclick="changeSpecial('${id}','${field}',-1)">−</button><span class="count">${Number(value)||0}</span><button onclick="changeSpecial('${id}','${field}',1)">+</button></div></td>`; }
+async function changeSpecial(employeeId,field,delta){
+  if(!admin)return; const allowed=["c","v","cs","ap","b"]; if(!allowed.includes(field))return;
+  const q=await db.from("especiales").select(`id,${field}`).eq("empleado_id",employeeId).maybeSingle(); if(q.error){toast(q.error.message,"error");return;}
+  if(!q.data){const insert={empleado_id:employeeId,c:0,v:0,cs:0,ap:0,b:0};insert[field]=Math.max(0,delta);const r=await db.from("especiales").insert(insert);if(r.error){toast(r.error.message,"error");return;}}
+  else{const next=Math.max(0,Number(q.data[field]||0)+delta);const r=await db.from("especiales").update({[field]:next,updated_at:new Date().toISOString()}).eq("id",q.data.id);if(r.error){toast(r.error.message,"error");return;}}
+  especiales();
 }
+async function resetSpecials(){ if(!admin||!confirm("¿Restablecer todos los contadores a 0?"))return;const r=await db.from("especiales").update({c:0,v:0,cs:0,ap:0,b:0,updated_at:new Date().toISOString()}).neq("id","00000000-0000-0000-0000-000000000000");if(r.error){toast(r.error.message,"error");return;}especiales();toast("Contadores restablecidos"); }
 
-/* =========================
-   NUEVO TURNO
-========================= */
-
-async function newShift(date) {
-
-  const employee = prompt(
-    "UUID del empleado:\n\n" +
-    employees.map(e =>
-      `${e.id} → ${e.full_name}`
-    ).join("\n")
-  );
-
-  if (!employee) return;
-
-  const start =
-    prompt("Hora de inicio", "08:00");
-
-  if (!start) return;
-
-  const end =
-    prompt("Hora de finalización", "16:00");
-
-  if (!end) return;
-
-  const service =
-    prompt("Turno / servicio", "Turno de mañana") || "";
-
-  const notes =
-    prompt("Nota", "") || "";
-
-  const r = await db
-    .from("shifts")
-    .insert({
-      date,
-      employee_id: employee,
-      start_time: start,
-      end_time: end,
-      service,
-      notes
-    });
-
-  if (r.error) {
-    alert(r.error.message);
-    return;
-  }
-
-  render("cuadrantes");
+async function empleadosPage(){
+  if(!admin){render("inicio");return;} await loadEmployees();
+  content.innerHTML=`<div class="calendar-toolbar"><div><span class="eyebrow">CONTROL DE PERSONAL</span><h3>Gestión de Empleados</h3><p class="muted">Añade, edita o elimina empleados. Los cambios se reflejan en el portal.</p></div><button class="btn primary" onclick="employeeForm()">+ Añadir empleado</button></div><div class="panel"><div class="table-scroll"><table class="employee-table"><thead><tr><th>Empleado</th><th>Teléfono</th><th>Turnos / puesto</th><th>Acciones</th></tr></thead><tbody>${employees.map(e=>`<tr><td><div class="employee-cell"><span class="avatar-small">${ini(e.nombre)}</span><div><strong>${esc(e.nombre)}</strong><small>ID: ${esc(e.id.slice(0,8))}…</small></div></div></td><td>${esc(e.telefono||"—")}</td><td>${esc(e.turnos||"—")}</td><td><button class="table-action" onclick="employeeForm('${e.id}')">✎ Editar</button><button class="table-action danger" onclick="deleteEmployee('${e.id}')">🗑 Eliminar</button></td></tr>`).join("")}</tbody></table></div></div>`;
 }
+function employeeForm(id=""){ if(!admin)return;const e=employees.find(x=>x.id===id)||{nombre:"",telefono:"",turnos:""};openModal(`<div class="modal-head"><div><span class="eyebrow">GESTIÓN DE PERSONAL</span><h3>${id?"Editar empleado":"Nuevo empleado"}</h3></div><button class="icon-btn" onclick="closeModal()">×</button></div><label>Nombre<input id="empNombre" class="field" value="${esc(e.nombre)}" placeholder="Nombre y apellidos"></label><label>Teléfono<input id="empTelefono" class="field" value="${esc(e.telefono||"")}" placeholder="Teléfono"></label><label>Turnos / puesto<input id="empTurnos" class="field" value="${esc(e.turnos||"")}" placeholder="Ej. Técnico"></label><div class="modal-actions"><button class="btn secondary" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveEmployee('${id}')">Guardar</button></div>`); }
+async function saveEmployee(id){ const nombre=document.getElementById("empNombre")?.value.trim(),telefono=document.getElementById("empTelefono")?.value.trim()||null,turnos=document.getElementById("empTurnos")?.value.trim()||null;if(!nombre){toast("El nombre es obligatorio","warn");return;}let r=id?await db.from("empleados").update({nombre,telefono,turnos}).eq("id",id):await db.from("empleados").insert({id:crypto.randomUUID(),nombre,telefono,turnos,rol:"empleado"});if(r.error){toast(r.error.message,"error");return;}closeModal();await loadEmployees();await ensureSpecialRows();empleadosPage();toast(id?"Empleado actualizado":"Empleado añadido"); }
+async function deleteEmployee(id){ if(!admin)return;const e=employees.find(x=>x.id===id);if(!e||!confirm(`¿Eliminar a ${e.nombre}? Esta acción también eliminará sus turnos y especiales.`))return;const r=await db.from("empleados").delete().eq("id",id);if(r.error){toast(r.error.message,"error");return;}await loadEmployees();empleadosPage();toast("Empleado eliminado"); }
+async function ensureSpecialRows(){ const {data}=await db.from("especiales").select("empleado_id");const set=new Set((data||[]).map(x=>x.empleado_id));const missing=employees.filter(e=>!set.has(e.id)).map(e=>({empleado_id:e.id,c:0,v:0,cs:0,ap:0,b:0}));if(missing.length)await db.from("especiales").insert(missing); }
 
-/* =========================
-   EDITAR TURNO
-========================= */
-
-async function editShift(id) {
-
-  const r = await db
-    .from("shifts")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (r.error) {
-    alert(r.error.message);
-    return;
-  }
-
-  const x = r.data;
-
-  const start =
-    prompt("Hora de inicio", x.start_time || "");
-
-  if (start === null) return;
-
-  const end =
-    prompt("Hora de finalización", x.end_time || "");
-
-  if (end === null) return;
-
-  const service =
-    prompt("Turno / servicio", x.service || "");
-
-  if (service === null) return;
-
-  const notes =
-    prompt("Nota", x.notes || "");
-
-  if (notes === null) return;
-
-  const u = await db
-    .from("shifts")
-    .update({
-      start_time: start,
-      end_time: end,
-      service,
-      notes
-    })
-    .eq("id", id);
-
-  if (u.error) {
-    alert(u.error.message);
-    return;
-  }
-
-  render("cuadrantes");
+async function novedades(){
+  const r=await db.from("novedades").select("id,titulo,contenido,autor,created_at,updated_at").order("created_at",{ascending:false});
+  if(r.error){content.innerHTML=`<div class="panel error-state"><h3>No se pudieron cargar las novedades</h3><p>${esc(r.error.message)}</p></div>`;return;}
+  const news=r.data||[]; window.__newsCache=news;
+  content.innerHTML=`<div class="calendar-toolbar"><div><span class="eyebrow">COMUNICACIÓN INTERNA</span><h3>Novedades</h3><p class="muted">Este apartado es editable por todos los empleados.</p></div><button class="btn primary" onclick="newsForm()">+ Añadir novedad</button></div><div class="news-list">${news.length?news.map(n=>`<article class="news-card"><div class="news-icon">✦</div><div class="news-body"><div class="news-top"><div><h4>${esc(n.titulo)}</h4><span>${esc(n.autor||"Equipo")} · ${n.created_at?new Date(n.created_at).toLocaleDateString("es-ES"):""}</span></div></div><p>${esc(n.contenido)}</p><div class="news-actions"><button class="table-action" onclick="newsForm('${n.id}')">✎ Editar</button><button class="table-action danger" onclick="deleteNews('${n.id}')">🗑 Eliminar</button></div></div></article>`).join(""):`<div class="empty-state"><div>✦</div><h3>No hay novedades todavía</h3><p>Añade la primera comunicación del equipo.</p></div>`}</div>`;
 }
-
-async function deleteShift(id) {
-
-  if (!confirm("¿Quieres eliminar este turno?")) {
-    return;
-  }
-
-  const r = await db
-    .from("shifts")
-    .delete()
-    .eq("id", id);
-
-  if (r.error) {
-    alert(r.error.message);
-    return;
-  }
-
-  render("cuadrantes");
-}
-
-/* =========================
-   FLOTA
-========================= */
-
-async function flota() {
-
-  const r = await db
-    .from("inventory")
-    .select("*")
-    .order("name");
-
-  const aircraft = r.data || [];
-
-  content.innerHTML = `
-    <div class="row">
-
-      <div>
-        <h3>Flota</h3>
-        <p class="muted">
-          Estado y observaciones de las aeronaves
-        </p>
-      </div>
-
-      ${admin ? `
-        <button class="btn" onclick="newAircraft()">
-          + Añadir aeronave
-        </button>
-      ` : ""}
-
-    </div>
-
-    <div class="grid">
-
-      ${aircraft.map(x => `
-
-        <div class="card">
-
-          <div class="row">
-
-            <h3>
-              ✈ ${esc(x.name)}
-            </h3>
-
-            <span class="tag">
-              ${esc(x.status || "Sin estado")}
-            </span>
-
-          </div>
-
-          ${x.reference ? `
-            <p>
-              <b>Matrícula / referencia:</b>
-              ${esc(x.reference)}
-            </p>
-          ` : ""}
-
-          ${x.location ? `
-            <p>
-              <b>Ubicación:</b>
-              ${esc(x.location)}
-            </p>
-          ` : ""}
-
-          ${x.notes ? `
-            <p>
-              <b>Notas:</b><br>
-              ${esc(x.notes)}
-            </p>
-          ` : ""}
-
-          ${admin ? `
-            <button
-              class="smallbtn"
-              onclick="editAircraft('${x.id}')">
-              Editar
-            </button>
-
-            <button
-              class="smallbtn danger"
-              onclick="deleteAircraft('${x.id}')">
-              Eliminar
-            </button>
-          ` : ""}
-
-        </div>
-
-      `).join("")}
-
-    </div>
-  `;
-}
-
-/* =========================
-   AERONAVES
-========================= */
-
-async function newAircraft() {
-
-  const name =
-    prompt("Nombre / modelo de aeronave");
-
-  if (!name) return;
-
-  const reference =
-    prompt("Matrícula / referencia", "") || "";
-
-  const status =
-    prompt(
-      "Estado",
-      "Operativo"
-    ) || "Operativo";
-
-  const location =
-    prompt("Ubicación", "") || "";
-
-  const notes =
-    prompt("Notas", "") || "";
-
-  const r = await db
-    .from("inventory")
-    .insert({
-      name,
-      reference,
-      status,
-      location,
-      notes,
-      quantity: 1
-    });
-
-  if (r.error) {
-    alert(r.error.message);
-    return;
-  }
-
-  render("flota");
-}
-
-async function editAircraft(id) {
-
-  const r = await db
-    .from("inventory")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (r.error) {
-    alert(r.error.message);
-    return;
-  }
-
-  const x = r.data;
-
-  const name =
-    prompt("Nombre / modelo", x.name || "");
-
-  if (!name) return;
-
-  const reference =
-    prompt(
-      "Matrícula / referencia",
-      x.reference || ""
-    ) || "";
-
-  const status =
-    prompt(
-      "Estado",
-      x.status || "Operativo"
-    ) || "Operativo";
-
-  const location =
-    prompt(
-      "Ubicación",
-      x.location || ""
-    ) || "";
-
-  const notes =
-    prompt(
-      "Notas",
-      x.notes || ""
-    ) || "";
-
-  const u = await db
-    .from("inventory")
-    .update({
-      name,
-      reference,
-      status,
-      location,
-      notes
-    })
-    .eq("id", id);
-
-  if (u.error) {
-    alert(u.error.message);
-    return;
-  }
-
-  render("flota");
-}
-
-async function deleteAircraft(id) {
-
-  if (!confirm("¿Eliminar esta aeronave?")) {
-    return;
-  }
-
-  const r = await db
-    .from("inventory")
-    .delete()
-    .eq("id", id);
-
-  if (r.error) {
-    alert(r.error.message);
-    return;
-  }
-
-  render("flota");
-}
-
-/* =========================
-   NOVEDADES
-========================= */
-
-async function novedades() {
-
-  const r = await db
-    .from("updates")
-    .select("*")
-    .order("created_at", {
-      ascending: false
-    });
-
-  if (r.error) {
-    content.innerHTML = `
-      <div class="card">
-        <h3>Error cargando novedades</h3>
-        <p>${esc(r.error.message)}</p>
-      </div>
-    `;
-    return;
-  }
-
-  const updates = r.data || [];
-
-  content.innerHTML = `
-    <div class="row">
-
-      <div>
-        <h3>Novedades</h3>
-        <p class="muted">
-          Todos los empleados pueden leer,
-          añadir, editar y eliminar novedades.
-        </p>
-      </div>
-
-      <button class="btn" onclick="newUpdate()">
-        + Nueva novedad
-      </button>
-
-    </div>
-
-    ${updates.length === 0 ? `
-      <div class="card">
-        <h3>No hay novedades todavía</h3>
-        <p class="muted">
-          Puedes crear la primera.
-        </p>
-      </div>
-    ` : ""}
-
-    ${updates.map(x => `
-      <div class="card" style="margin:12px 0">
-
-        <div class="row">
-
-          <div>
-            <h3>${esc(x.title)}</h3>
-
-            <span class="muted">
-              ${x.created_at
-                ? new Date(x.created_at)
-                    .toLocaleDateString("es-ES")
-                : ""}
-            </span>
-          </div>
-
-        </div>
-
-        <p>
-          ${esc(x.body || "")}
-        </p>
-
-        <div>
-
-          <button
-            class="smallbtn"
-            onclick="editUpdate('${x.id}')">
-            Editar
-          </button>
-
-          <button
-            class="smallbtn danger"
-            onclick="deleteUpdate('${x.id}')">
-            Eliminar
-          </button>
-
-        </div>
-
-      </div>
-    `).join("")}
-  `;
-}
-
-async function newUpdate() {
-
-  const title =
-    prompt("Título de la novedad");
-
-  if (!title) return;
-
-  const body =
-    prompt("Contenido") || "";
-
-  const r = await db
-    .from("updates")
-    .insert({
-      title,
-      body
-    });
-
-  if (r.error) {
-    alert(r.error.message);
-    return;
-  }
-
-  render("novedades");
-}
-
-async function editUpdate(id) {
-
-  const r = await db
-    .from("updates")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (r.error) {
-    alert(r.error.message);
-    return;
-  }
-
-  const title =
-    prompt(
-      "Título",
-      r.data.title || ""
-    );
-
-  if (!title) return;
-
-  const body =
-    prompt(
-      "Contenido",
-      r.data.body || ""
-    ) || "";
-
-  const u = await db
-    .from("updates")
-    .update({
-      title,
-      body
-    })
-    .eq("id", id);
-
-  if (u.error) {
-    alert(u.error.message);
-    return;
-  }
-
-  render("novedades");
-}
-
-async function deleteUpdate(id) {
-
-  if (!confirm(
-    "¿Quieres eliminar esta novedad?"
-  )) {
-    return;
-  }
-
-  const r = await db
-    .from("updates")
-    .delete()
-    .eq("id", id);
-
-  if (r.error) {
-    alert(r.error.message);
-    return;
-  }
-
-  render("novedades");
-}
-
-/* =========================
-   PERFIL
-========================= */
-
-async function perfil() {
-
-  content.innerHTML = `
-    <div class="card">
-
-      <h3>Mi perfil</h3>
-
-      <p>
-        <b>Nombre:</b>
-        ${esc(current.full_name)}
-      </p>
-
-      <p>
-        <b>Teléfono:</b>
-        ${esc(current.phone || "No indicado")}
-      </p>
-
-      <p>
-        <b>Rol:</b>
-        ${esc(current.role || "Empleado")}
-      </p>
-
-      <button
-        class="btn"
-        onclick="editProfile()">
-        Editar datos
-      </button>
-
-    </div>
-  `;
-}
-
-async function editProfile() {
-
-  const full_name =
-    prompt(
-      "Nombre",
-      current.full_name
-    );
-
-  if (!full_name) return;
-
-  const phone =
-    prompt(
-      "Teléfono",
-      current.phone || ""
-    ) || "";
-
-  const r = await db
-    .from("profiles")
-    .update({
-      full_name,
-      phone
-    })
-    .eq("id", current.id);
-
-  if (r.error) {
-    alert(r.error.message);
-    return;
-  }
-
-  await load();
-
-  current =
-    employees.find(
-      e => e.id === current.id
-    );
-
-  render("perfil");
-}
-
-/* =========================
-   ADMINISTRACIÓN
-========================= */
-
-async function adminPage() {
-
-  await load();
-
-  content.innerHTML = `
-    <div class="grid">
-
-      <div class="card stat">
-        <span class="muted">
-          Empleados
-        </span>
-        <b>${employees.length}</b>
-      </div>
-
-      <div class="card stat">
-        <span class="muted">
-          Estado
-        </span>
-        <b>OK</b>
-      </div>
-
-    </div>
-
-    <div class="card">
-
-      <h3>Equipo</h3>
-
-      <table class="table">
-
-        <tr>
-          <th>Nombre</th>
-          <th>Teléfono</th>
-          <th>Rol</th>
-        </tr>
-
-        ${employees.map(e => `
-          <tr>
-
-            <td>
-              ${esc(e.full_name)}
-            </td>
-
-            <td>
-              ${esc(e.phone || "")}
-            </td>
-
-            <td>
-              ${esc(e.role || "Empleado")}
-            </td>
-
-          </tr>
-        `).join("")}
-
-      </table>
-
-    </div>
-  `;
-}
-
-/* =========================
-   ADMIN LOGIN
-========================= */
-
-function pin() {
-
-  S.insertAdjacentHTML(
-    "beforeend",
-    `
-      <div class="modal" id="modal">
-
-        <div class="card">
-
-          <button
-            class="close"
-            onclick="modal.remove()">
-            ×
-          </button>
-
-          <h3>Administración</h3>
-
-          <p class="muted">
-            Introduce el PIN de administrador.
-          </p>
-
-          <input
-            id="p"
-            class="pin"
-            type="password"
-            maxlength="6">
-
-          <br><br>
-
-          <button
-            class="btn"
-            onclick="
-              if(p.value==='1234'){
-                admin=true;
-                modal.remove();
-                render('admin');
-              }else{
-                alert('PIN incorrecto');
-              }
-            ">
-            Entrar
-          </button>
-
-        </div>
-
-      </div>
-    `
-  );
-}
+function newsForm(id=""){ const existing=window.__newsCache?.find(x=>x.id===id); if(id&&!existing){db.from("novedades").select("*").eq("id",id).single().then(r=>{if(!r.error){window.__newsCache=[r.data];newsForm(id);}});return;}const n=existing||{titulo:"",contenido:""};openModal(`<div class="modal-head"><div><span class="eyebrow">COMUNICACIÓN</span><h3>${id?"Editar novedad":"Nueva novedad"}</h3></div><button class="icon-btn" onclick="closeModal()">×</button></div><label>Título<input id="newsTitle" class="field" value="${esc(n.titulo)}" placeholder="Título"></label><label>Contenido<textarea id="newsBody" class="field textarea" rows="6" placeholder="Escribe la novedad...">${esc(n.contenido)}</textarea></label><div class="modal-actions"><button class="btn secondary" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="saveNews('${id}')">Guardar</button></div>`); }
+async function saveNews(id){ const titulo=document.getElementById("newsTitle")?.value.trim(),contenido=document.getElementById("newsBody")?.value.trim();if(!titulo||!contenido){toast("Completa título y contenido","warn");return;}const autor=admin?"Administrador":current?.nombre||"Empleado";const r=id?await db.from("novedades").update({titulo,contenido,autor,updated_at:new Date().toISOString()}).eq("id",id):await db.from("novedades").insert({titulo,contenido,autor});if(r.error){toast(r.error.message,"error");return;}closeModal();window.__newsCache=null;novedades();toast("Novedad guardada"); }
+async function deleteNews(id){ if(!confirm("¿Eliminar esta novedad?"))return;const r=await db.from("novedades").delete().eq("id",id);if(r.error){toast(r.error.message,"error");return;}novedades();toast("Novedad eliminada"); }
+
+function showHelp(){ openModal(`<div class="modal-head"><div><span class="eyebrow">AYUDA</span><h3>Cómo utilizar el portal</h3></div><button class="icon-btn" onclick="closeModal()">×</button></div><div class="help-list"><p><b>Cuadrante:</b> cada día dispone de dos casillas, <b>M</b> (mañana) y <b>T</b> (tarde). Solo el administrador puede marcarlas.</p><p><b>Especiales:</b> muestra los contadores C, V, CS, AP y B. El administrador puede incrementarlos o reducirlos.</p><p><b>Novedades:</b> todos los empleados pueden crear, editar y eliminar comunicaciones.</p><p><b>Empleados:</b> el administrador puede incorporar o quitar personal desde Gestión de Empleados.</p></div>`); }
+function openModal(body){ let modal=document.getElementById("modal");if(modal)modal.remove();document.body.insertAdjacentHTML("beforeend",`<div class="modal-backdrop" id="modal" onclick="if(event.target===this)closeModal()"><div class="modal-card">${body}</div></div>`); }
+function closeModal(){ document.getElementById("modal")?.remove(); }
 
 choose();
