@@ -1,0 +1,1 @@
+(function(){var logoUrl='ataque-logo.svg';document.documentElement.style.setProperty('--logo',"url('"+logoUrl+"')");window.ATAQUE_LOGO=logoUrl;})();
