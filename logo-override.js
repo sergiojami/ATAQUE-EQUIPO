@@ -1,1 +1,1 @@
-(function(){var logoUrl='ataque-logo.svg';document.documentElement.style.setProperty('--logo',"url('"+logoUrl+"')");window.ATAQUE_LOGO=logoUrl;})();
+(function(){var logoUrl='ataque-logo.svg?v=20260815b';document.documentElement.style.setProperty('--logo',"url('"+logoUrl+"')");window.ATAQUE_LOGO=logoUrl;})();
