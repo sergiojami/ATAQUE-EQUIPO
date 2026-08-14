@@ -1,12 +1,12 @@
-/* Fix final de acceso a Ejercicios / Comisiones. No sustituye el router: solo intercepta esta ruta. */
+/* Fix final de acceso a Ejercicios / Comisiones. Deja que el módulo estable gestione la pantalla completa. */
 (function(){
   const baseRender=window.render;
   if(typeof baseRender!=='function') return;
   window.render=async function(page='inicio',...args){
     if(page!=='comisiones') return baseRender(page,...args);
     try{
+      // El router estable ya renderiza el módulo con edición, personal y contador de noches.
       await baseRender('comisiones',...args);
-      if(typeof window.comisionesPage==='function') await window.comisionesPage();
       if(typeof window.ensureComisionesNav==='function') window.ensureComisionesNav('comisiones');
     }catch(e){
       const c=document.getElementById('content');
