@@ -1,1 +1,56 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ATAQUE EQUIPO - Aviónica"><defs><radialGradient id="bg" cx="50%" cy="45%" r="58%"><stop offset="0" stop-color="#151515"/><stop offset="1" stop-color="#000"/></radialGradient><filter id="shadow"><feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#000" flood-opacity=".55"/></filter><path id="topArc" d="M 78,242 A 178,178 0 0,1 434,242"/><path id="bottomArc" d="M 72,304 A 190,190 0 0,0 440,304"/></defs><circle cx="256" cy="256" r="248" fill="#050505"/><circle cx="256" cy="256" r="241" fill="#f3df00" stroke="#e90020" stroke-width="22"/><circle cx="256" cy="256" r="204" fill="#050505" stroke="#e90020" stroke-width="20"/><circle cx="256" cy="256" r="180" fill="url(#bg)" stroke="#f3df00" stroke-width="4"/><g filter="url(#shadow)" fill="#aaa99b" stroke="#56584f" stroke-width="5" stroke-linejoin="round"><path d="M256 92C239 112 228 145 222 181L214 265 205 347 256 378 307 347 298 265 290 181C284 145 273 112 256 92Z"/><path d="M226 193 64 270 67 289 218 253Z"/><path d="M286 193 448 270 445 289 294 253Z"/><path d="M222 306 105 352 116 370 228 341Z"/><path d="M290 306 407 352 396 370 284 341Z"/><path d="M243 151 256 76 269 151Z" fill="#b7b6a6"/><path d="M225 336 256 371 287 336 277 356 256 389 235 356Z" fill="#888a80"/></g><path d="M241 171Q256 151 271 171L281 220Q256 234 231 220Z" fill="#252525" stroke="#67685e" stroke-width="4"/><path d="M242 180Q256 164 270 180" fill="none" stroke="#d7d7ca" stroke-width="3" opacity=".75"/><g fill="#111" font-family="Georgia,Times New Roman,serif" font-weight="900" letter-spacing="5"><text font-size="37"><textPath href="#topArc" startOffset="50%" text-anchor="middle">AVIONICA</textPath></text><text font-size="40"><textPath href="#bottomArc" startOffset="50%" text-anchor="middle">ATAQUE</textPath></text></g><path d="M256 8V54M256 458V504" stroke="#111" stroke-width="7"/><circle cx="256" cy="256" r="248" fill="none" stroke="#111" stroke-width="8"/><circle cx="256" cy="256" r="229" fill="none" stroke="#ffec18" stroke-width="3" opacity=".9"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="ATAQUE EQUIPO - Aviónica">
+<defs>
+  <radialGradient id="metal" cx="48%" cy="25%" r="82%"><stop offset="0" stop-color="#f4f4e8"/><stop offset=".28" stop-color="#cfd0c4"/><stop offset=".58" stop-color="#8f9187"/><stop offset="1" stop-color="#55574f"/></radialGradient>
+  <linearGradient id="wing" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d8d8cc"/><stop offset=".45" stop-color="#9b9c91"/><stop offset="1" stop-color="#65675f"/></linearGradient>
+  <linearGradient id="yellow" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff51a"/><stop offset="1" stop-color="#ffd900"/></linearGradient>
+  <radialGradient id="black" cx="50%" cy="45%" r="70%"><stop stop-color="#111"/><stop offset="1" stop-color="#000"/></radialGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity=".55"/></filter>
+  <path id="topArc" d="M 130,365 A 370,370 0 0,1 870,365"/>
+  <path id="bottomArc" d="M 120,650 A 390,390 0 0,0 880,650"/>
+</defs>
+<!-- circular badge -->
+<circle cx="500" cy="500" r="494" fill="#050505"/>
+<circle cx="500" cy="500" r="480" fill="#ed001d" stroke="#111" stroke-width="10"/>
+<circle cx="500" cy="500" r="424" fill="url(#yellow)" stroke="#111" stroke-width="7"/>
+<circle cx="500" cy="500" r="355" fill="url(#black)" stroke="#ed001d" stroke-width="23"/>
+<circle cx="500" cy="500" r="337" fill="none" stroke="#ffec18" stroke-width="4"/>
+<!-- top/bottom separator accents -->
+<path d="M500 12 L500 112" stroke="#111" stroke-width="14" stroke-linecap="round"/>
+<path d="M500 888 L500 988" stroke="#111" stroke-width="14" stroke-linecap="round"/>
+<!-- aircraft, closer to supplied badge -->
+<g filter="url(#shadow)" stroke="#4c4f48" stroke-width="7" stroke-linejoin="round">
+  <!-- fuselage -->
+  <path fill="url(#metal)" d="M500 125 C459 166 439 227 430 306 L414 526 C410 592 422 654 453 711 L500 770 L547 711 C578 654 590 592 586 526 L570 306 C561 227 541 166 500 125Z"/>
+  <!-- left/right main wings -->
+  <path fill="url(#wing)" d="M444 315 L75 485 L82 518 L430 443 L475 390Z"/>
+  <path fill="url(#wing)" d="M556 315 L925 485 L918 518 L570 443 L525 390Z"/>
+  <!-- tailplane / rear surfaces -->
+  <path fill="url(#wing)" d="M437 585 L150 707 L174 745 L457 660Z"/>
+  <path fill="url(#wing)" d="M563 585 L850 707 L826 745 L543 660Z"/>
+  <!-- vertical fin -->
+  <path fill="#b9baad" d="M474 192 L500 63 L526 192 L514 267 L486 267Z"/>
+  <path fill="#7b7d74" d="M496 72 L500 63 L504 72 L504 191 L496 191Z" stroke="none"/>
+  <!-- nose/canopy details -->
+  <path fill="#1b1b1a" d="M455 292 Q500 242 545 292 L561 385 Q500 417 439 385Z"/>
+  <path fill="#cfd0c5" d="M464 292 Q500 255 536 292 Q527 277 500 270 Q473 277 464 292Z" stroke="none"/>
+  <ellipse cx="500" cy="392" rx="17" ry="14" fill="#090909" stroke="#d8d8ca" stroke-width="5"/>
+  <!-- lower cockpit/engine dark openings -->
+  <path fill="#020202" d="M429 548 Q500 574 571 548 L579 658 Q500 690 421 658Z"/>
+  <path fill="#050505" d="M435 667 L493 690 L493 750 L454 708Z" stroke="none"/>
+  <path fill="#050505" d="M565 667 L507 690 L507 750 L546 708Z" stroke="none"/>
+  <!-- panel/highlight lines -->
+  <path d="M500 424 L500 554" fill="none" stroke="#696b63" stroke-width="9"/>
+  <path d="M437 500 Q500 535 563 500" fill="none" stroke="#c8c9be" stroke-width="6" opacity=".55"/>
+</g>
+<!-- ring lettering -->
+<g font-family="Georgia, 'Times New Roman', serif" font-weight="900" text-anchor="middle" fill="#050505" stroke="#050505">
+  <text font-size="76" letter-spacing="8"><textPath href="#topArc" startOffset="50%">AVIONICA</textPath></text>
+</g>
+<g font-family="Georgia, 'Times New Roman', serif" font-weight="900" text-anchor="middle">
+  <text font-size="92" letter-spacing="4" fill="#080808" stroke="#fff" stroke-width="13" paint-order="stroke"><textPath href="#bottomArc" startOffset="50%">ATAQUE</textPath></text>
+  <text font-size="92" letter-spacing="4" fill="none" stroke="#ffd900" stroke-width="4"><textPath href="#bottomArc" startOffset="50%">ATAQUE</textPath></text>
+</g>
+<!-- outer finish -->
+<circle cx="500" cy="500" r="494" fill="none" stroke="#050505" stroke-width="12"/>
+<circle cx="500" cy="500" r="463" fill="none" stroke="#fff21a" stroke-width="4"/>
+</svg>
