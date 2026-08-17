@@ -1,1 +1,1 @@
-(function(){var logoUrl='ataque-logo.svg?v=20260815b';document.documentElement.style.setProperty('--logo',"url('"+logoUrl+"')");window.ATAQUE_LOGO=logoUrl;})();
+(function(){var logoUrl='parche-avionica.svg?v=20260817a';document.documentElement.style.setProperty('--logo',"url('"+logoUrl+"')");window.ATAQUE_LOGO=logoUrl;})();
