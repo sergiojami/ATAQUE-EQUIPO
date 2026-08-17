@@ -1,0 +1,85 @@
+/* Interfaz profesional basada en el diseño aprobado. Mantiene la funcionalidad existente. */
+:root{
+  --ui-navy:#061a31;
+  --ui-navy-2:#0b2a4a;
+  --ui-blue:#0d5fc4;
+  --ui-blue-2:#2d7fe0;
+  --ui-bg:#f5f8fc;
+  --ui-border:#e5ebf3;
+  --ui-text:#12243d;
+  --ui-muted:#5d6f88;
+}
+
+.app-shell{background:var(--ui-bg)}
+.app-shell:before{left:350px;opacity:.025;background-size:720px}
+.sidebar{width:350px;background:linear-gradient(180deg,#03162b 0%,#06233e 100%);padding:20px 18px 16px;box-shadow:8px 0 28px rgba(8,35,61,.08)}
+.sidebar-brand{padding:4px 8px 28px;gap:16px;align-items:center}
+.sidebar-brand img{width:112px;height:112px;object-fit:contain;flex:0 0 112px}
+.sidebar-brand b{font-size:25px;letter-spacing:-.5px;color:#fff;line-height:1.05}
+.sidebar-brand span{font-size:13px;margin-top:8px;color:#b7c8da;line-height:1.35}
+.side-nav{gap:5px}
+.side-link{padding:14px 15px;border-radius:12px;gap:14px;color:#edf4fb;font-size:16px;min-height:48px}
+.side-link:hover{background:rgba(35,126,221,.18)}
+.side-link.active{background:linear-gradient(90deg,#0d4f91,#0a67be);box-shadow:0 8px 22px rgba(0,84,160,.25)}
+.side-icon{width:28px;font-size:22px;color:#fff}
+.sidebar-bottom{padding-top:18px;border-top:1px solid rgba(164,191,216,.22)}
+.sidebar-help{display:none}
+.sidebar-bottom .side-link{margin-top:3px}
+.sidebar-mark{display:none}
+.sidebar-footer{display:none}
+
+.main-area{margin-left:350px;background:var(--ui-bg)}
+.topbar{height:88px;padding:0 38px;background:rgba(255,255,255,.98);border-bottom:1px solid var(--ui-border)}
+.topbar-left{gap:16px}
+.topbar-left .eyebrow{display:none}
+.topbar-left h1{display:none}
+.mobile-menu{display:grid;place-items:center;background:transparent;border:0;color:var(--ui-text);font-size:25px;padding:7px}
+.topbar-right{gap:14px}
+.user-chip{gap:12px}
+.user-chip b{font-size:16px;color:var(--ui-text)}
+.user-chip span{font-size:13px;color:var(--ui-muted);margin-top:3px}
+.avatar{width:46px;height:46px;font-size:15px;background:#1768c7;color:#fff}
+.icon-btn{background:transparent;font-size:20px;color:var(--ui-text)}
+.page-content{padding:34px 36px 48px;max-width:1540px}
+
+/* Dashboard */
+.ui-dashboard .dashboard-heading{margin:0 0 28px}
+.ui-dashboard .dashboard-heading h2{margin:0;color:var(--ui-text);font-size:44px;line-height:1.05;letter-spacing:-1.4px}
+.ui-dashboard .dashboard-heading p{margin:10px 0 0;font-size:21px;color:#1b2f49}
+.ui-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin-bottom:34px}
+.ui-stat{background:#fff;border:1px solid var(--ui-border);border-radius:14px;min-height:156px;padding:25px;display:flex;align-items:flex-start;gap:20px;box-shadow:0 7px 24px rgba(18,36,61,.055)}
+.ui-stat-icon{width:56px;height:56px;border-radius:12px;display:grid;place-items:center;color:#fff;font-size:27px;flex:0 0 auto}
+.ui-stat.blue .ui-stat-icon{background:#0f66c8}.ui-stat.green .ui-stat-icon{background:#18a957}.ui-stat.purple .ui-stat-icon{background:#7040c9}.ui-stat.gold .ui-stat-icon{background:#f2ad00}
+.ui-stat-label{font-size:16px;color:#132843;margin:2px 0 4px}
+.ui-stat-value{font-size:38px;line-height:1;font-weight:800;color:#12243d;letter-spacing:-1px}
+.ui-stat-note{font-size:15px;color:#536987;margin-top:11px}
+.ui-dashboard-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(360px,.95fr);gap:28px}
+.ui-card{background:#fff;border:1px solid var(--ui-border);border-radius:14px;box-shadow:0 7px 24px rgba(18,36,61,.055);overflow:hidden}
+.ui-card-head{padding:22px 28px;border-bottom:1px solid var(--ui-border)}
+.ui-card-head h3{margin:0;font-size:22px;color:var(--ui-text)}
+.ui-news{padding:0 28px}
+.ui-news-row{display:flex;align-items:center;gap:18px;padding:20px 0;border-bottom:1px solid var(--ui-border)}
+.ui-news-row:last-child{border-bottom:0}
+.ui-news-icon{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:#eaf2fc;color:#0b5fc1;font-size:21px;flex:0 0 auto}
+.ui-news-icon.green{background:#eaf8ee;color:#16a053}.ui-news-icon.gold{background:#fff5e4;color:#eea500}
+.ui-news-main{min-width:0;flex:1}.ui-news-title{font-weight:800;font-size:16px;color:#132843}.ui-news-meta{font-size:14px;color:#536987;margin-top:6px}
+.ui-pill{justify-self:end;padding:8px 15px;border-radius:18px;font-size:13px;font-weight:700;background:#e8f5ff;color:#0d5fc4;white-space:nowrap}.ui-pill.green{background:#e8f7ee;color:#15934d}.ui-pill.red{background:#ffeded;color:#d62828}
+.ui-news-footer{border-top:1px solid var(--ui-border);padding:17px;text-align:center}.ui-news-footer button{border:0;background:transparent;color:#0d5fc4;font-size:16px;font-weight:800}
+.ui-quick-list{padding:0 28px}.ui-quick-item{width:100%;display:flex;align-items:center;gap:16px;padding:20px 0;border:0;border-bottom:1px solid var(--ui-border);background:#fff;text-align:left;color:#0d4fa7;font-weight:800;font-size:16px;cursor:pointer}.ui-quick-item:last-child{border-bottom:0}.ui-quick-item:hover{color:#084182}.ui-quick-item span:first-child{font-size:23px;width:28px}.ui-quick-arrow{margin-left:auto;font-size:23px;color:#264b72}
+
+/* En pantallas internas conservamos la funcionalidad, pero aplicamos el mismo lenguaje visual. */
+.panel,.calendar-wrap,.commission-panel,.specials-panel{box-shadow:0 7px 24px rgba(18,36,61,.055)}
+.btn.primary{background:#0d7fbb}
+
+@media (max-width:1200px){
+  .sidebar{width:285px}.main-area{margin-left:285px}.app-shell:before{left:285px}
+  .sidebar-brand img{width:90px;height:90px;flex-basis:90px}.sidebar-brand b{font-size:21px}.side-link{font-size:14px}
+  .ui-stats{gap:16px}.ui-stat{padding:20px;gap:14px}.ui-stat-value{font-size:32px}
+}
+@media (max-width:900px){
+  .sidebar{transform:translateX(-100%);transition:transform .2s ease}.sidebar.open{transform:translateX(0)}
+  .main-area{margin-left:0}.app-shell:before{left:0}.topbar{padding:0 20px}.mobile-menu{display:grid}.page-content{padding:24px 18px}.ui-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.ui-dashboard-grid{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .topbar{height:72px}.user-chip div:last-child{display:none}.ui-dashboard .dashboard-heading h2{font-size:34px}.ui-dashboard .dashboard-heading p{font-size:17px}.ui-stats{grid-template-columns:1fr}.ui-stat{min-height:126px}.ui-news{padding:0 18px}.ui-card-head{padding:18px}.ui-quick-list{padding:0 18px}.ui-news-row{gap:12px}.ui-pill{font-size:11px;padding:7px 10px}
+}
