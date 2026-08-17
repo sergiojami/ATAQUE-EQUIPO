@@ -1,1 +1,9 @@
-{"name":"Aviónica","short_name":"Aviónica","start_url":"./","display":"standalone","background_color":"#f3f7fb","theme_color":"#10243e","lang":"es"}
+{
+  "name":"Aviónica de Ataque",
+  "short_name":"Aviónica de Ataque",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#f3f7fb",
+  "theme_color":"#10243e",
+  "lang":"es"
+}
