@@ -1,0 +1,6 @@
+/* Oculta cualquier presentación gráfica del parche/logotipo en todas las vistas. */
+.login-logo,
+.sidebar-brand img,
+.sidebar-mark img,
+.hero-card img{display:none!important;}
+.login-watermark{background-image:none!important;}
