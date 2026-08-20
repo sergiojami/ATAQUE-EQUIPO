@@ -22,6 +22,17 @@ function specialMonthLabel(date) {
   return new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(date);
 }
 
+function specialAnnualPeriod(date = new Date()) {
+  const year = date.getFullYear();
+  // El periodo anual empieza el 1 de febrero y termina el 31 de enero siguiente.
+  const startYear = date.getMonth() >= 1 ? year : year - 1;
+  return {
+    start: `${startYear}-02-01`,
+    end: `${startYear + 1}-01-31`,
+    label: `${startYear}-${startYear + 1}`
+  };
+}
+
 function specialNextValue(value) {
   const index = SPECIAL_TYPES.indexOf(value);
   if (index === -1) return "C";
@@ -36,26 +47,37 @@ async function especiales() {
   const month = specialCalendarDate.getMonth();
   const start = specialDateKey(year, month, 1);
   const end = specialDateKey(year, month, specialDaysInMonth(year, month));
+  const annualPeriod = specialAnnualPeriod(specialCalendarDate);
 
-  const result = await db
-    .from("especiales_calendario")
-    .select("id,fecha,empleado_id,tipo")
-    .gte("fecha", start)
-    .lte("fecha", end)
-    .order("fecha");
+  const [monthResult, annualResult] = await Promise.all([
+    db
+      .from("especiales_calendario")
+      .select("id,fecha,empleado_id,tipo")
+      .gte("fecha", start)
+      .lte("fecha", end)
+      .order("fecha"),
+    db
+      .from("especiales_calendario")
+      .select("empleado_id,tipo")
+      .gte("fecha", annualPeriod.start)
+      .lte("fecha", annualPeriod.end)
+  ]);
 
-  if (result.error) {
-    box.innerHTML = `<div class="panel error-state"><h3>No se pudo cargar Especiales</h3><p>${esc(result.error.message)}</p><button class="btn primary" onclick="render('especiales')">Reintentar</button></div>`;
+  if (monthResult.error || annualResult.error) {
+    const error = monthResult.error || annualResult.error;
+    box.innerHTML = `<div class="panel error-state"><h3>No se pudo cargar Especiales</h3><p>${esc(error.message)}</p><button class="btn primary" onclick="render('especiales')">Reintentar</button></div>`;
     return;
   }
 
-  const records = result.data || [];
+  const records = monthResult.data || [];
+  const annualRecords = annualResult.data || [];
   const byKey = new Map(records.map(row => [`${row.fecha}|${row.empleado_id}`, row.tipo]));
   const days = Array.from({ length: specialDaysInMonth(year, month) }, (_, i) => i + 1);
 
+  // Los contadores corresponden al periodo anual vigente: 1 de febrero -> 31 de enero.
   const counters = new Map();
   employees.forEach(employee => counters.set(employee.id, { C: 0, V: 0, CS: 0, AP: 0, B: 0 }));
-  records.forEach(row => {
+  annualRecords.forEach(row => {
     const counter = counters.get(row.empleado_id);
     if (counter && counter[row.tipo] !== undefined) counter[row.tipo] += 1;
   });
@@ -126,7 +148,7 @@ async function especiales() {
         </tbody>
         <tfoot>
           <tr>
-            <th class="special-employee-col">TOTAL MES</th>
+            <th class="special-employee-col">TOTAL PERIODO ${annualPeriod.label}</th>
             ${days.map(() => "<td></td>").join("")}
             ${SPECIAL_TYPES.map(type => `<th class="special-total-counter">${total[type]}</th>`).join("")}
           </tr>
@@ -136,7 +158,7 @@ async function especiales() {
 
     <div class="special-calendar-footer">
       <span><b>${employees.length}</b> empleados · <b>${days.length}</b> días</span>
-      <span>Los contadores muestran las veces registradas en el mes visible.</span>
+      <span>Los contadores muestran el total del periodo ${annualPeriod.label}: 1 de febrero → 31 de enero.</span>
     </div>
   `;
 }
