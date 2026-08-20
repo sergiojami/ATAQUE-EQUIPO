@@ -23,12 +23,12 @@ function specialMonthLabel(date) {
 }
 
 function specialAnnualPeriod(date = new Date()) {
-  // Periodo anual de Especiales: 1 de enero del año en curso hasta 31 de enero del año siguiente.
-  // Durante enero se mantiene el periodo que comenzó el 1 de enero del año anterior.
+  // Periodo anual de Especiales: 1 de febrero del año en curso hasta 31 de enero del año siguiente.
+  // Durante enero pertenece al periodo que comenzó el 1 de febrero del año anterior.
   const year = date.getFullYear();
   const periodYear = date.getMonth() === 0 ? year - 1 : year;
   return {
-    start: `${periodYear}-01-01`,
+    start: `${periodYear}-02-01`,
     end: `${periodYear + 1}-01-31`,
     label: `${periodYear}/${periodYear + 1}`
   };
@@ -97,7 +97,7 @@ async function especiales() {
         <span class="eyebrow">PLANIFICACIÓN MENSUAL</span>
         <h3>Especiales</h3>
         <p class="muted">Registra en el calendario <b>C</b> Compensación, <b>V</b> Vacaciones, <b>CS</b> Comisión de servicio, <b>AP</b> Asuntos propios y <b>B</b> Baja.</p>
-        <div class="special-period-banner"><span>CONTADOR ANUAL</span><strong>Periodo ${esc(annualPeriod.label)}</strong><small>${specialPeriodLabel(annualPeriod)} · Incluye enero del año siguiente.</small></div>
+        <div class="special-period-banner"><span>CONTADOR ANUAL</span><strong>Periodo ${esc(annualPeriod.label)}</strong><small>${specialPeriodLabel(annualPeriod)} · De febrero a enero.</small></div>
       </div>
       <div class="toolbar-actions">
         <button class="btn secondary" onclick="changeSpecialMonth(-1)">← Mes anterior</button>
