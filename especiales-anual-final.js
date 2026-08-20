@@ -1,4 +1,4 @@
-/* Especiales FINAL: sustituye la vista mensual que vive dentro de app.js. */
+/* Especiales FINAL: vista anual sin calendario. */
 (function(){
   const esc = value => String(value ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   const ini = name => String(name || '').trim().split(/\s+/).map(x => x[0] || '').slice(0,2).join('').toUpperCase();
@@ -64,9 +64,22 @@
     await loadAnnual();
   };
 
+  /* Interceptamos solo la navegación a Especiales. No llamamos a la función mensual de app.js. */
   const originalRender=window.render;
   if(typeof originalRender==='function'){
-    window.render=function(page){ if(page==='especiales'){ const S=document.getElementById('screen'); if(S) S.querySelector('.topbar-left h1')?.replaceChildren(document.createTextNode('Especiales')); originalRender('especiales'); setTimeout(loadAnnual,0); return; } return originalRender.apply(this,arguments); };
+    window.render=function(page){
+      if(page==='especiales'){
+        const screen=document.getElementById('screen');
+        const content=document.getElementById('content');
+        if(screen && content && screen.querySelector('.app-shell')){
+          screen.querySelector('.topbar-left h1')?.replaceChildren(document.createTextNode('Especiales'));
+          screen.querySelectorAll('.side-link').forEach(btn=>btn.classList.toggle('active', (btn.getAttribute('onclick')||'').includes("render('especiales')")));
+          loadAnnual();
+          return;
+        }
+      }
+      return originalRender.apply(this,arguments);
+    };
   }
   window.renderAnnualSpecials=loadAnnual;
   window.addEventListener('load',()=>{ if(location.hash==='#especiales') loadAnnual(); });
