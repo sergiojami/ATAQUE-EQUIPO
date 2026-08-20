@@ -23,14 +23,20 @@ function specialMonthLabel(date) {
 }
 
 function specialAnnualPeriod(date = new Date()) {
-  const year = date.getFullYear();
-  // El periodo anual empieza el 1 de febrero y termina el 31 de enero siguiente.
-  const startYear = date.getMonth() >= 1 ? year : year - 1;
+  // Periodo solicitado: todo el año en curso + enero del año siguiente.
+  // En enero se mantiene el periodo iniciado el 1 de enero del año anterior,
+  // que finaliza el 31 de enero del año en curso.
+  const periodYear = date.getMonth() === 0 ? date.getFullYear() - 1 : date.getFullYear();
   return {
-    start: `${startYear}-02-01`,
-    end: `${startYear + 1}-01-31`,
-    label: `${startYear}-${startYear + 1}`
+    start: `${periodYear}-01-01`,
+    end: `${periodYear + 1}-01-31`,
+    label: `${periodYear} – ${periodYear + 1}`
   };
+}
+
+function specialPeriodLabel(period) {
+  const format = value => new Date(`${value}T00:00:00`).toLocaleDateString("es-ES");
+  return `${format(period.start)} → ${format(period.end)}`;
 }
 
 function specialNextValue(value) {
@@ -74,7 +80,7 @@ async function especiales() {
   const byKey = new Map(records.map(row => [`${row.fecha}|${row.empleado_id}`, row.tipo]));
   const days = Array.from({ length: specialDaysInMonth(year, month) }, (_, i) => i + 1);
 
-  // Los contadores corresponden al periodo anual vigente: 1 de febrero -> 31 de enero.
+  // Los contadores corresponden al periodo anual vigente: 1 de enero -> 31 de enero siguiente.
   const counters = new Map();
   employees.forEach(employee => counters.set(employee.id, { C: 0, V: 0, CS: 0, AP: 0, B: 0 }));
   annualRecords.forEach(row => {
@@ -91,6 +97,7 @@ async function especiales() {
         <span class="eyebrow">PLANIFICACIÓN MENSUAL</span>
         <h3>Especiales</h3>
         <p class="muted">Registra en el calendario <b>C</b> Compensación, <b>V</b> Vacaciones, <b>CS</b> Comisión de servicio, <b>AP</b> Asuntos propios y <b>B</b> Baja.</p>
+        <div class="special-period-banner"><span>CONTADOR ANUAL</span><strong>${specialPeriodLabel(annualPeriod)}</strong><small>El total incluye todo el año en curso y el mes de enero siguiente.</small></div>
       </div>
       <div class="toolbar-actions">
         <button class="btn secondary" onclick="changeSpecialMonth(-1)">← Mes anterior</button>
@@ -158,7 +165,7 @@ async function especiales() {
 
     <div class="special-calendar-footer">
       <span><b>${employees.length}</b> empleados · <b>${days.length}</b> días</span>
-      <span>Los contadores muestran el total del periodo ${annualPeriod.label}: 1 de febrero → 31 de enero.</span>
+      <span>Los contadores muestran el total del periodo ${specialPeriodLabel(annualPeriod)}.</span>
     </div>
   `;
 }
