@@ -5,7 +5,7 @@
   const admin=()=>window.__ATAQUE_ADMIN===true||window.admin===true;
   const employees=()=>Array.isArray(window.__ATAQUE_EMPLOYEES)?window.__ATAQUE_EMPLOYEES:(Array.isArray(window.employees)?window.employees:[]);
   // Orden oficial del cuadrante (puestos 1–12). El administrador/DB no forma parte de este listado.
-  const QUADRANT_ORDER=['De Benito','Angulo','Pajarillo','Sergio','Raul','Roldán','Paloma','Rubén','De Porras','Campos','Salvatierra','Castillo'];
+  const QUADRANT_ORDER=['De Benito','Angulo','Pajarillo','Sergio','Raul','Roldán','Paloma','Rubén','De Porras','Salvatierra','Castillo','Campos'];
   const order=list=>[...(list||[])].sort((a,b)=>{
     const ai=QUADRANT_ORDER.findIndex(n=>n.toLocaleLowerCase('es-ES')===name(a).trim().toLocaleLowerCase('es-ES'));
     const bi=QUADRANT_ORDER.findIndex(n=>n.toLocaleLowerCase('es-ES')===name(b).trim().toLocaleLowerCase('es-ES'));
