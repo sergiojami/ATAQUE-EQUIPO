@@ -1,0 +1,10 @@
+/* Capa de navegación móvil: el contenido queda accesible al cerrar el menú. */
+#mobileNavBackdrop{display:none;position:fixed;inset:0;background:rgba(3,22,43,.34);z-index:9;opacity:0;pointer-events:none;transition:opacity .18s ease}
+#mobileNavBackdrop.visible{display:block;opacity:1;pointer-events:auto}
+body.mobile-nav-open{overflow:hidden}
+@media (max-width:900px){
+  .sidebar{z-index:20}
+  .main-area{position:relative;z-index:1;min-height:100vh}
+  .page-content{position:relative;z-index:1}
+}
+@media (min-width:901px){#mobileNavBackdrop{display:none!important}}
