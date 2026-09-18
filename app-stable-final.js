@@ -18,7 +18,7 @@
   const employees=()=>window.__ATAQUE_EMPLOYEES||[];
   const current=()=>window.__ATAQUE_CURRENT||null;
 
-  async function loadPeople(){const r=await db.from('empleados').select('id,nombre,telefono,turnos,rol,created_at').neq('rol','admin');if(r.error)throw r.error;window.__ATAQUE_EMPLOYEES=sortPeople(r.data||[]);return window.__ATAQUE_EMPLOYEES;}
+  async function loadPeople(){const fallback=preferred.map((nombre,i)=>({id:`local-${i+1}`,nombre,telefono:'',turnos:'',rol:'empleado',local:true}));try{const r=await db.from('empleados').select('id,nombre,telefono,turnos,rol,created_at').neq('rol','admin');if(r.error)throw r.error;const data=r.data||[];window.__ATAQUE_EMPLOYEES=sortPeople(data.length?data:fallback);}catch(_){window.__ATAQUE_EMPLOYEES=fallback;}return window.__ATAQUE_EMPLOYEES;}
 
   function shell(page){
     const titles={inicio:'Inicio',cuadrantes:'Cuadrante de Turnos',especiales:'Especiales',empleados:'Gestión de Empleados',comisiones:'Ejercicios / Comisiones',novedades:'Novedades'};
